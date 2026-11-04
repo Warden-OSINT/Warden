@@ -38,19 +38,20 @@ export type Database = {
         Row: {
           created_by: string | null
           id: string
-          recipients: Json
+          recipients: NonNullable<Json>
           threshold_grade: string
         }
+        ComputedFields: never
         Insert: {
           created_by?: string | null
           id?: string
-          recipients?: Json
+          recipients?: NonNullable<Json>
           threshold_grade: string
         }
         Update: {
           created_by?: string | null
           id?: string
-          recipients?: Json
+          recipients?: NonNullable<Json>
           threshold_grade?: string
         }
         Relationships: [
@@ -73,6 +74,7 @@ export type Database = {
           score_id: string
           sent_at: string | null
         }
+        ComputedFields: never
         Insert: {
           alert_type: string
           channel: string
@@ -113,6 +115,7 @@ export type Database = {
           source_table: string
           storage_path: string
         }
+        ComputedFields: never
         Insert: {
           archived_at?: string
           company_id: string
@@ -157,6 +160,7 @@ export type Database = {
           last_seen: string
           value: string
         }
+        ComputedFields: never
         Insert: {
           asset_type: string
           attribution_status?: string
@@ -201,17 +205,18 @@ export type Database = {
           action: string
           actor_id: string | null
           created_at: string
-          detail: Json
+          detail: NonNullable<Json>
           entity_id: string | null
           entity_type: string
           id: number
           ip_address: unknown
         }
+        ComputedFields: never
         Insert: {
           action: string
           actor_id?: string | null
           created_at?: string
-          detail?: Json
+          detail?: NonNullable<Json>
           entity_id?: string | null
           entity_type: string
           id?: never
@@ -221,7 +226,7 @@ export type Database = {
           action?: string
           actor_id?: string | null
           created_at?: string
-          detail?: Json
+          detail?: NonNullable<Json>
           entity_id?: string | null
           entity_type?: string
           id?: never
@@ -246,6 +251,7 @@ export type Database = {
           primary_domain: string
           status: string
         }
+        ComputedFields: never
         Insert: {
           created_at?: string
           created_by?: string | null
@@ -279,6 +285,7 @@ export type Database = {
           raw_reference: Json | null
           source_key: string
         }
+        ComputedFields: never
         Insert: {
           finding_id: string
           last_seen_scan_id?: string | null
@@ -320,7 +327,7 @@ export type Database = {
           asset_id: string | null
           company_id: string
           confidence: string
-          evidence: Json
+          evidence: NonNullable<Json>
           evidence_path: string | null
           fingerprint: string
           id: string
@@ -333,11 +340,12 @@ export type Database = {
           status_reason: string | null
           title: string
         }
+        ComputedFields: never
         Insert: {
           asset_id?: string | null
           company_id: string
           confidence: string
-          evidence?: Json
+          evidence?: NonNullable<Json>
           evidence_path?: string | null
           fingerprint: string
           id?: string
@@ -354,7 +362,7 @@ export type Database = {
           asset_id?: string | null
           company_id?: string
           confidence?: string
-          evidence?: Json
+          evidence?: NonNullable<Json>
           evidence_path?: string | null
           fingerprint?: string
           id?: string
@@ -412,17 +420,18 @@ export type Database = {
           destination: string
           event_type: string
           id: number
-          payload: Json
+          payload: NonNullable<Json>
           sent_at: string | null
           status: string
         }
+        ComputedFields: never
         Insert: {
           attempts?: number
           created_at?: string
           destination: string
           event_type: string
           id?: never
-          payload: Json
+          payload: NonNullable<Json>
           sent_at?: string | null
           status?: string
         }
@@ -432,7 +441,7 @@ export type Database = {
           destination?: string
           event_type?: string
           id?: never
-          payload?: Json
+          payload?: NonNullable<Json>
           sent_at?: string | null
           status?: string
         }
@@ -446,6 +455,7 @@ export type Database = {
           is_active: boolean
           role: string
         }
+        ComputedFields: never
         Insert: {
           created_at?: string
           full_name?: string | null
@@ -477,6 +487,7 @@ export type Database = {
           status: string
           summary_text: string | null
         }
+        ComputedFields: never
         Insert: {
           content?: Json | null
           context_hash?: string | null
@@ -522,6 +533,7 @@ export type Database = {
           key: string
           name: string
         }
+        ComputedFields: never
         Insert: {
           description?: string | null
           id?: never
@@ -544,11 +556,12 @@ export type Database = {
           items_returned: number
           latency_ms: number | null
           message: string | null
-          notices: Json
+          notices: NonNullable<Json>
           scan_id: string
           source_key: string
           status: string
         }
+        ComputedFields: never
         Insert: {
           assets_returned?: number
           findings_returned?: number
@@ -556,7 +569,7 @@ export type Database = {
           items_returned?: number
           latency_ms?: number | null
           message?: string | null
-          notices?: Json
+          notices?: NonNullable<Json>
           scan_id: string
           source_key: string
           status: string
@@ -568,7 +581,7 @@ export type Database = {
           items_returned?: number
           latency_ms?: number | null
           message?: string | null
-          notices?: Json
+          notices?: NonNullable<Json>
           scan_id?: string
           source_key?: string
           status?: string
@@ -608,6 +621,7 @@ export type Database = {
           trigger_type: string
           weight_version_id: string | null
         }
+        ComputedFields: never
         Insert: {
           cancelled_by?: string | null
           company_id: string
@@ -688,6 +702,7 @@ export type Database = {
           is_active: boolean
           next_run_at: string
         }
+        ComputedFields: never
         Insert: {
           company_id: string
           frequency: string
@@ -720,6 +735,7 @@ export type Database = {
           risk_domain_id: number
           score_id: string
         }
+        ComputedFields: never
         Insert: {
           domain_score: number
           findings_count?: number
@@ -762,6 +778,7 @@ export type Database = {
           scan_id: string
           weight_version_id: string
         }
+        ComputedFields: never
         Insert: {
           company_id: string
           computed_at?: string
@@ -808,23 +825,24 @@ export type Database = {
       }
       scoring_weight_items: {
         Row: {
-          confidence_factors: Json
+          confidence_factors: NonNullable<Json>
           risk_domain_id: number
-          severity_points: Json
+          severity_points: NonNullable<Json>
           weight: number
           weight_version_id: string
         }
+        ComputedFields: never
         Insert: {
-          confidence_factors?: Json
+          confidence_factors?: NonNullable<Json>
           risk_domain_id: number
-          severity_points?: Json
+          severity_points?: NonNullable<Json>
           weight: number
           weight_version_id: string
         }
         Update: {
-          confidence_factors?: Json
+          confidence_factors?: NonNullable<Json>
           risk_domain_id?: number
-          severity_points?: Json
+          severity_points?: NonNullable<Json>
           weight?: number
           weight_version_id?: string
         }
@@ -853,6 +871,7 @@ export type Database = {
           is_active: boolean
           version: number
         }
+        ComputedFields: never
         Insert: {
           created_by?: string | null
           effective_from?: string
@@ -885,6 +904,7 @@ export type Database = {
           secret_ref: string
           source_key: string
         }
+        ComputedFields: never
         Insert: {
           id?: string
           is_valid?: boolean | null
@@ -918,6 +938,7 @@ export type Database = {
           risk_domain_id: number
           source_key: string
         }
+        ComputedFields: never
         Insert: {
           is_enabled?: boolean
           is_no_contact?: boolean
@@ -953,11 +974,11 @@ export type Database = {
         Args: { p_weight_version_id: string }
         Returns: undefined
       }
-      app_role: { Args: never; Returns: string }
+      app_role: { Args: Record<PropertyKey, never>; Returns: string }
       cancel_scan: { Args: { p_scan_id: string }; Returns: boolean }
-      enqueue_due_scans: { Args: never; Returns: number }
-      is_admin: { Args: never; Returns: boolean }
-      is_member: { Args: never; Returns: boolean }
+      enqueue_due_scans: { Args: Record<PropertyKey, never>; Returns: number }
+      is_admin: { Args: Record<PropertyKey, never>; Returns: boolean }
+      is_member: { Args: Record<PropertyKey, never>; Returns: boolean }
       queue_delete: {
         Args: { p_msg_id: number; p_queue: string }
         Returns: boolean
@@ -1006,12 +1027,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1033,13 +1054,12 @@ export type Tables<
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1058,13 +1078,12 @@ export type TablesInsert<
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1083,13 +1102,12 @@ export type TablesUpdate<
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema["Enums"]
-    | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    keyof DefaultSchema["Enums"] | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1102,11 +1120,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1123,4 +1141,3 @@ export const Constants = {
     Enums: {},
   },
 } as const
-

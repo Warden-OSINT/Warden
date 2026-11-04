@@ -92,8 +92,8 @@ async function recordSource(
       items_returned: assets + findings,
       assets_returned: assets,
       findings_returned: findings,
-      // Los colectores producen avisos serializables a JSON.
-      notices: (result?.notices ?? []) as unknown as Json,
+      // Los colectores producen avisos serializables a JSON; la columna es not null.
+      notices: (result?.notices ?? []) as unknown as NonNullable<Json>,
       latency_ms: latencyMs === null ? null : Math.round(latencyMs),
       message: message ?? null,
     },

@@ -336,7 +336,7 @@ pnpm install
 cp .env.example .env            # completar con las llaves que imprime `pnpm db:start`
 cp .env apps/web/.env.local     # Next.js solo lee variables de su propia carpeta
 pnpm db:start                   # Supabase local (Docker): migraciones + seed
-pnpm db:types                   # regenera packages/db/src/database.types.ts
+pnpm db:types                   # regenera packages/db/src/database.types.ts (la CLI v3 no lo formatea; el script pasa Prettier)
 pnpm dev                        # web (localhost:3000) + worker
 pnpm typecheck                  # tsc en todos los paquetes
 pnpm test                       # vitest
