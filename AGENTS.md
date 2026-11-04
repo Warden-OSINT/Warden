@@ -61,7 +61,7 @@ Estos valores deben coincidir en tres lugares: `packages/shared/src/index.ts`, l
 | Página Hallazgos (`/findings`) | ✅ Filtros, evidencia y triage (`triageFinding`; motivo obligatorio para falso positivo / riesgo aceptado) |
 | Página Activos (`/assets`) | ✅ Inventario con filtros, conteo de hallazgos abiertos, alta manual (entra confirmada) y confirmación/descarte individual o masivo (`lib/assets.ts`, `setAssetsStatus`, `addAsset`) |
 | Página Reportes (`/reports`) | ✅ Un reporte por escaneo calificado (`lib/reports.ts`): KRI, notas por dominio, cobertura, fuentes, hallazgos abiertos y alertas; imprimible/PDF desde el navegador. Resumen ejecutivo con IA (estado, riesgos, recomendaciones y botón Regenerar) |
-| Configuración (`/settings`) | ✅ Usuarios, **Pesos del KRI** (crear y activar versiones; `lib/scoring-settings.ts`) y **Alertas** (umbral, destinatarios e historial). Editar requiere admin |
+| Configuración (`/settings`) | ✅ Usuarios, **Pesos del KRI** (crear y activar versiones; `lib/scoring-settings.ts`), **Programación de escaneos** (frecuencia, próxima ejecución en hora local y pausa; `lib/schedule-settings.ts`, `saveSchedule`) y **Alertas** (umbral, destinatarios e historial). Editar requiere admin |
 | Alertas | 🟡 El worker registra `grade_drop` / `threshold_crossed` tras calificar (`pipeline/alerts.ts`), canal `in_app`. Envío por correo/webhook pendiente |
 | Outbox SIEM/SOAR, archivado | 🔴 Solo tablas |
 
@@ -99,7 +99,7 @@ Warden-/
 │   │       ├── components/              Componentes UI + *.module.css
 │   │       │   ├── dashboard/           Gauge, activos, dominios, tendencia, hallazgos
 │   │       │   ├── reports/             Lista y vista imprimible de reportes, alertas
-│   │       │   └── settings/            Pesos del KRI y reglas de alerta
+│   │       │   └── settings/            Pesos del KRI, programación de escaneos y reglas de alerta
 │   │       ├── lib/
 │   │       │   ├── supabase/client.ts   Cliente para Client Components
 │   │       │   ├── supabase/server.ts   Cliente para Server Components / Route Handlers
