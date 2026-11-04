@@ -10,7 +10,7 @@
     "test": "turbo test",
     "db:start": "supabase start",
     "db:reset": "supabase db reset",
-    "db:types": "supabase gen types typescript --local > packages/db/src/database.types.ts"
+    "db:types": "supabase gen types typescript > packages/db/src/database.types.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.3",

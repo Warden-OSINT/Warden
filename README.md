@@ -33,7 +33,7 @@ Guía paso a paso para correr Warden en tu máquina. Los comandos están en Powe
 | **Node.js 24** | Ejecutar el proyecto | https://nodejs.org |
 | **Git** | Clonar el repo | https://git-scm.com |
 | **Docker Desktop** | Supabase local corre en contenedores | https://www.docker.com/products/docker-desktop |
-| **Supabase CLI** | `pnpm db:start`, `db:reset`, `db:types` | `scoop install supabase` (o `npm i -g supabase`) |
+| **Supabase CLI v3** (3.0.0 o posterior) | `pnpm db:start`, `db:reset`, `db:types` | `scoop install supabase` (o `npm i -g supabase`); si ya la tienes: `scoop update supabase` |
 
 Verifica:
 
@@ -102,7 +102,7 @@ pnpm dev
 
 ### 6. Iniciar sesión
 
-El seed local crea un admin activo en cada `db:start` / `db:reset`: usuario `admin@warden.test`; la contraseña está en el comentario de [supabase/seeds/dev-admin.sql](supabase/seeds/dev-admin.sql). Solo existe en local; `supabase db push` no ejecuta seeds.
+El seed local crea un admin activo en cada `db:start` / `db:reset`: usuario `admin@warden.test`; la contraseña está en el comentario de [supabase/seeds/dev-admin.sql](supabase/seeds/dev-admin.sql). Solo existe en local; `supabase db push --remote` no ejecuta seeds.
 
 Para ver el dashboard sin Supabase (datos de ejemplo, sin login), arranca solo la web con `WARDEN_DEV_SKIP_AUTH=true`:
 
