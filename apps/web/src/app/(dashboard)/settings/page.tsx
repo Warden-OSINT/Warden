@@ -13,6 +13,11 @@ const SECTIONS = [
     hint: 'Versiones de pesos por dominio, puntos por severidad y factores por confianza. Editar requiere rol admin.',
   },
   {
+    href: '/settings/schedule',
+    title: 'Programación de escaneos',
+    hint: 'Frecuencia y fecha del próximo escaneo automático. Editar requiere rol admin.',
+  },
+  {
     href: '/settings/alerts',
     title: 'Alertas',
     hint: 'Umbral de nota, destinatarios e historial de alertas. Editar requiere rol admin.',

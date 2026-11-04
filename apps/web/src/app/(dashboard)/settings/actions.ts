@@ -5,6 +5,8 @@
 
 import { CONFIDENCES, GRADES, RISK_DOMAIN_KEYS, SEVERITIES } from '@warden/shared';
 import { revalidatePath } from 'next/cache';
+import { loadActiveCompany } from '@/lib/dashboard-data';
+import { SCHEDULE_FREQUENCIES } from '@/lib/schedule';
 import { createClient } from '@/lib/supabase/server';
 
 export interface ActionResult {
@@ -140,4 +142,48 @@ export async function saveAlertSettings(_prev: ActionResult, formData: FormData)
 
   revalidatePath('/settings/alerts');
   return { ok: 'Configuración de alertas guardada' };
+}
+
+const FREQUENCIES: readonly string[] = SCHEDULE_FREQUENCIES;
+/** Más allá de esto casi seguro es un error de captura (año mal escrito). */
+const MAX_SCHEDULE_AHEAD_MS = 366 * 24 * 60 * 60 * 1000;
+
+/**
+ * Crea o actualiza la programación de escaneos de la empresa. `nextRunAt` llega en ISO (el
+ * navegador convierte su hora local); enqueue_due_scans() la encola al vencer y la avanza
+ * según la frecuencia.
+ */
+export async function saveSchedule(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  const frequency = String(formData.get('frequency') ?? '');
+  if (!FREQUENCIES.includes(frequency)) return { error: 'Frecuencia inválida' };
+  const nextRunAt = new Date(String(formData.get('nextRunAt') ?? ''));
+  if (Number.isNaN(nextRunAt.getTime())) return { error: 'Indica la fecha y hora de la próxima ejecución' };
+  const isActive = formData.get('active') === 'on';
+  const now = Date.now();
+  // Una fecha pasada se encolaría de inmediato: si es lo que se quiere, existe "Escanear ahora".
+  if (isActive && nextRunAt.getTime() <= now) return { error: 'La próxima ejecución debe ser en el futuro' };
+  if (nextRunAt.getTime() - now > MAX_SCHEDULE_AHEAD_MS) return { error: 'La próxima ejecución debe ser dentro del próximo año' };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: 'Sesión expirada' };
+
+  const company = await loadActiveCompany(supabase);
+  if (!company) return { error: 'Registra primero la empresa a evaluar' };
+
+  const { data, error } = await supabase
+    .from('schedules')
+    .upsert(
+      { company_id: company.id, frequency, next_run_at: nextRunAt.toISOString(), is_active: isActive },
+      { onConflict: 'company_id' },
+    )
+    .select('company_id');
+  if (error) return { error: permissionMessage(error) };
+  if (data.length === 0) return { error: 'Solo un administrador puede cambiar esta configuración' };
+
+  revalidatePath('/settings/schedule');
+  revalidatePath('/');
+  return { ok: isActive ? 'Programación guardada' : 'Programación guardada y pausada' };
 }
