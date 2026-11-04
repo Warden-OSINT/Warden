@@ -91,18 +91,28 @@ async function loadReportSource(db: Db, scoreId: string): Promise<ReportSource> 
     .single();
   if (error) throw error;
 
-  const [{ data: findings, error: findingsError }, { data: domains, error: domainsError }] = await Promise.all([
-    db
-      .from('findings')
-      .select('title, severity, risk_domains!inner(name)')
-      .eq('company_id', score.company_id)
-      .eq('status', 'open')
-      .limit(1000),
+  // Una consulta por severidad: con un límite global, un subconjunto arbitrario podría dejar
+  // fuera los críticos. 'info' nunca entra al resumen (ver buildReportContext).
+  const severities = SEVERITIES.filter((s) => s !== 'info');
+  const [domainsRes, ...findingsRes] = await Promise.all([
     db.from('risk_domains').select('key, name'),
+    ...severities.map((severity) =>
+      db
+        .from('findings')
+        .select('title, severity, risk_domains!inner(name)')
+        .eq('company_id', score.company_id)
+        .eq('status', 'open')
+        .eq('severity', severity)
+        .order('title')
+        .limit(TOP_FINDINGS)),
   ]);
-  if (findingsError) throw findingsError;
-  if (domainsError) throw domainsError;
-  const domainName = new Map((domains ?? []).map((d) => [d.key, d.name]));
+  if (domainsRes.error) throw domainsRes.error;
+  const findings = findingsRes.flatMap((res) => {
+    if (res.error) throw res.error;
+    return res.data;
+  });
+  const domains = domainsRes.data;
+  const domainName = new Map(domains.map((d) => [d.key, d.name]));
 
   return {
     companyName: score.companies.name,
@@ -114,6 +124,6 @@ async function loadReportSource(db: Db, scoreId: string): Promise<ReportSource> 
       findingsCount: d.findings_count,
     })),
     excludedDomains: score.excluded_domains.map((key) => domainName.get(key) ?? key),
-    openFindings: (findings ?? []).map((f) => ({ title: f.title, severity: f.severity, domain: f.risk_domains.name })),
+    openFindings: findings.map((f) => ({ title: f.title, severity: f.severity, domain: f.risk_domains.name })),
   };
 }

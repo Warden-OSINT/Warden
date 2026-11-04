@@ -25,6 +25,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          # Versión fija: `latest` saltó a la v3, que rechaza [inbucket] en config.toml. Migrar a
+          # la v3 (y a [local_smtp]) es un cambio aparte; usar la misma versión que en local.
+          version: 2.107.0
       # Aplica migraciones + seed en un Postgres limpio para detectar SQL inválido.
       - run: supabase db start

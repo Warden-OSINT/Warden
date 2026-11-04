@@ -982,6 +982,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      register_company: {
+        Args: { p_domain: string; p_name: string }
+        Returns: string
+      }
       request_report: { Args: { p_score_id: string }; Returns: undefined }
       request_scan: { Args: { p_company_id: string }; Returns: string }
     }

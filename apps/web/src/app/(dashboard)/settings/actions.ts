@@ -123,8 +123,10 @@ export async function saveAlertSettings(_prev: ActionResult, formData: FormData)
 
   if (!threshold && recipients.length === 0) {
     if (existing) {
-      const { error } = await supabase.from('alert_settings').delete().eq('id', existing.id);
+      const { data, error } = await supabase.from('alert_settings').delete().eq('id', existing.id).select('id');
       if (error) return { error: permissionMessage(error) };
+      // RLS no devuelve error al filtrar filas: sin filas borradas no hubo permiso.
+      if (data.length === 0) return { error: 'Solo un administrador puede cambiar esta configuración' };
     }
   } else {
     // threshold_grade es obligatorio en BD: sin umbral se guarda F, que nunca se cruza.
