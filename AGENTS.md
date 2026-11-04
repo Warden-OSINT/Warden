@@ -222,7 +222,7 @@ Reglas:
    - **report (IA):** `rpc('request_report')` encola `{ score_id }` en `report_requests`. El worker atiende esa cola cuando no hay escaneos (`pipeline/report.ts`) y guarda el resultado en `reports` (`pending` → `draft` o `failed` con `error_message`). Un fallo de la IA nunca tumba el escaneo; la web permite regenerar.
    - Marca `completed` o `failed`.
    - **Progreso y cancelación:** durante la recolección el worker guarda `scans.current_source` y `sources_total` (la web muestra "Consultando X · n de N"). Un miembro puede detenerlo con `rpc('cancel_scan')` → `status = 'cancelled'`; el worker lo revisa cada 3 s (`pipeline/cancellation.ts`), aborta las consultas en vuelo y no persiste ni califica resultados parciales. Uno cancelado en cola se descarta al leerlo.
-4. Tras procesar, `queue_delete`. Si el worker muere (o se apaga), el mensaje reaparece al vencer el timeout; tras 3 intentos (`MAX_ATTEMPTS`) el escaneo se marca `failed`.
+4. Mientras el escaneo corre, el worker renueva la invisibilidad del mensaje cada tercio del timeout (`queue_set_vt`, `pipeline/visibility.ts`) para que un escaneo largo no se procese dos veces. Tras procesar, `queue_delete`. Si el worker muere (o se apaga), el latido se detiene y el mensaje reaparece al vencer el timeout; tras 3 intentos (`MAX_ATTEMPTS`) el escaneo se marca `failed`. Un mensaje cuyo escaneo ya no existe se descarta.
 
 ### Modelo de datos (resumen)
 
@@ -238,7 +238,7 @@ Fuente de verdad: `supabase/migrations/`. Diagrama ER: [docs/diagrams/warden_er_
 | Resultados | `scores`, `score_domains`, `reports` (guarda `model_used`, `prompt_version`, `context_hash`) |
 | Alertas / integración | `alert_settings`, `alerts`, `integration_outbox` (patrón outbox), `archives` |
 
-Funciones SQL relevantes: `app_role()`, `is_member()`, `is_admin()`, `request_scan()`, `enqueue_due_scans()`, `activate_scoring_weights()` (valida que los pesos sumen 100), `queue_read()`, `queue_delete()`.
+Funciones SQL relevantes: `app_role()`, `is_member()`, `is_admin()`, `request_scan()`, `enqueue_due_scans()`, `activate_scoring_weights()` (valida que los pesos sumen 100), `queue_read()`, `queue_set_vt()`, `queue_delete()`.
 
 ---
 

@@ -1,8 +1,15 @@
 const ALLOWED_HOSTS = new Set([
   'dns.google', 'haveibeenpwned.com', 'internetdb.shodan.io', 'www.cisa.gov', 'api.first.org',
-  'urlhaus-api.abuse.ch', 'threatfox-api.abuse.ch', 'feodotracker.abuse.ch', 'api.github.com',
+  'urlhaus-api.abuse.ch', 'threatfox-api.abuse.ch', 'feodotracker.abuse.ch', 'api.github.com', 'crt.sh',
 ]);
 const MAX_RESPONSE_BYTES = 5 * 1024 * 1024;
+const TIMEOUT_MS = 15_000;
+
+/** Límites por consulta; una fuente lenta o voluminosa (p. ej. crt.sh) puede ampliarlos. */
+export interface FetchLimits {
+  timeoutMs?: number;
+  maxBytes?: number;
+}
 
 export class SourceHttpError extends Error {
   constructor(public readonly status: number, public readonly retryAfter: string | null) {
@@ -19,6 +26,7 @@ export async function fetchPublicJson(
   signal: AbortSignal,
   headers: Record<string, string> = {},
   body?: string | URLSearchParams,
+  { timeoutMs = TIMEOUT_MS, maxBytes = MAX_RESPONSE_BYTES }: FetchLimits = {},
 ): Promise<unknown> {
   if (url.protocol !== 'https:' || !ALLOWED_HOSTS.has(url.hostname) || url.port || url.username || url.password) {
     throw new Error('Destino no autorizado para recolección pasiva.');
@@ -26,7 +34,7 @@ export async function fetchPublicJson(
   const response = await fetch(url, {
     method: body === undefined ? 'GET' : 'POST',
     body,
-    signal: AbortSignal.any([signal, AbortSignal.timeout(15000)]),
+    signal: AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)]),
     redirect: 'error', headers: { accept: 'application/json', 'user-agent': 'Warden-OSINT/1.0', ...headers },
   });
   if (!response.ok) {
@@ -43,7 +51,7 @@ export async function fetchPublicJson(
       const chunk = await reader.read();
       if (chunk.done) break;
       size += chunk.value.byteLength;
-      if (size > MAX_RESPONSE_BYTES) throw new Error('La respuesta de la fuente excede el límite permitido.');
+      if (size > maxBytes) throw new Error('La respuesta de la fuente excede el límite permitido.');
       text += decoder.decode(chunk.value, { stream: true });
     }
     text += decoder.decode();

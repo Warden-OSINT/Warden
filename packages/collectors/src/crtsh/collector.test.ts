@@ -53,4 +53,25 @@ describe('fetchCrtsh', () => {
     await expect(fetchCrtsh(url, ctx.signal, [0, 0])).rejects.toThrow(/^crt\.sh respondió 404$/);
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
+
+  it('usa el cliente restringido: sin redirects y con timeout', async () => {
+    const fetchMock = vi.fn(async (_url: URL, _init?: RequestInit) => ok());
+    vi.stubGlobal('fetch', fetchMock);
+
+    await fetchCrtsh(url, ctx.signal, [0, 0]);
+
+    expect(fetchMock.mock.calls[0]![1]).toMatchObject({ redirect: 'error' });
+    expect(fetchMock.mock.calls[0]![1]!.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it('rechaza respuestas que exceden el tope de tamaño', async () => {
+    const huge = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        controller.enqueue(new Uint8Array(8 * 1024 * 1024));
+      },
+    });
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(huge)));
+
+    await expect(fetchCrtsh(url, ctx.signal, [0, 0])).rejects.toThrow('excede el límite');
+  });
 });

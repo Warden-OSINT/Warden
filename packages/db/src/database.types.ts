@@ -974,6 +974,14 @@ export type Database = {
           read_ct: number
         }[]
       }
+      queue_set_vt: {
+        Args: {
+          p_msg_id: number
+          p_queue: string
+          p_visibility_timeout: number
+        }
+        Returns: boolean
+      }
       request_report: { Args: { p_score_id: string }; Returns: undefined }
       request_scan: { Args: { p_company_id: string }; Returns: string }
     }

@@ -20,8 +20,13 @@ export async function runScan(
     .from('scans')
     .select('id, company_id, weight_version_id, status')
     .eq('id', scanId)
-    .single();
+    .maybeSingle();
   if (error) throw error;
+  // Escaneo borrado (p. ej. con su empresa): sin return, el mensaje se reintentaría para siempre.
+  if (!scan) {
+    console.warn(`[run-scan] ${scanId} ya no existe: se descarta el mensaje`);
+    return;
+  }
   // Un escaneo cancelado en cola se descarta aquí; el mensaje se borra igual.
   if (FINISHED.has(scan.status)) return;
 

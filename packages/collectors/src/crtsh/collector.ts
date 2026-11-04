@@ -1,5 +1,6 @@
 import { setTimeout as sleep } from 'node:timers/promises';
 import { queryDoh } from '../dns/doh';
+import { fetchPublicJson, SourceHttpError } from '../http/public-json';
 import type { Collector } from '../types';
 import { analyzeCertificates } from './certs';
 import { mapSubdomains, type CrtshEntry } from './mapper';
@@ -10,6 +11,11 @@ import { mapSubdomains, type CrtshEntry } from './mapper';
  */
 export const RETRY_DELAYS_MS = [3_000, 8_000];
 const RETRYABLE_STATUS = new Set([429, 502, 503, 504]);
+/**
+ * crt.sh es lento y un dominio con mucho historial devuelve decenas de MB. Con los
+ * reintentos, el peor caso (~3 min) sigue muy por debajo del visibility timeout de la cola.
+ */
+const CRTSH_LIMITS = { timeoutMs: 60_000, maxBytes: 50 * 1024 * 1024 };
 
 /** Consulta crt.sh reintentando solo los errores transitorios del servicio. */
 export async function fetchCrtsh(
@@ -18,15 +24,18 @@ export async function fetchCrtsh(
   delaysMs: readonly number[] = RETRY_DELAYS_MS,
 ): Promise<CrtshEntry[]> {
   for (let attempt = 0; ; attempt++) {
-    const res = await fetch(url, { signal });
-    if (res.ok) return (await res.json()) as CrtshEntry[];
-    await res.body?.cancel();
-    const delay = delaysMs[attempt];
-    if (!RETRYABLE_STATUS.has(res.status) || delay === undefined) {
-      const tries = attempt + 1;
-      throw new Error(`crt.sh respondió ${res.status}${tries > 1 ? ` tras ${tries} intentos` : ''}`);
+    try {
+      // Cliente restringido: solo HTTPS a hosts permitidos, sin redirects, con timeout y tope de tamaño.
+      return (await fetchPublicJson(new URL(url), signal, {}, undefined, CRTSH_LIMITS)) as CrtshEntry[];
+    } catch (err) {
+      if (!(err instanceof SourceHttpError)) throw err;
+      const delay = delaysMs[attempt];
+      if (!RETRYABLE_STATUS.has(err.status) || delay === undefined) {
+        const tries = attempt + 1;
+        throw new Error(`crt.sh respondió ${err.status}${tries > 1 ? ` tras ${tries} intentos` : ''}`);
+      }
+      await sleep(delay, undefined, { signal });
     }
-    await sleep(delay, undefined, { signal });
   }
 }
 

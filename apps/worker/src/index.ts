@@ -3,6 +3,7 @@ import { QUEUES, type ReportRequestMessage, type ScanRequestMessage } from '@war
 import { config } from './config';
 import { runScan } from './jobs/run-scan';
 import { generateReport } from './pipeline/report';
+import { keepInvisible } from './pipeline/visibility';
 import { db } from './supabase';
 
 const IDLE_DELAY_MS = 5_000;
@@ -29,8 +30,13 @@ async function pollScanRequests(): Promise<boolean> {
   for (const msg of messages) {
     // pgmq tipa el mensaje como Json; su forma la garantizan request_scan() y enqueue_due_scans().
     const { scan_id } = msg.message as unknown as ScanRequestMessage;
-    // Si el worker muere a mitad del escaneo, el mensaje reaparece al vencer el timeout.
-    await runScan(db, scan_id, { attempt: msg.read_ct, signal: shutdown.signal });
+    // Si el worker muere a mitad del escaneo, el latido se detiene y el mensaje reaparece al vencer el timeout.
+    const heartbeat = keepInvisible(db, QUEUES.scanRequests, msg.msg_id, config.QUEUE_VISIBILITY_TIMEOUT);
+    try {
+      await runScan(db, scan_id, { attempt: msg.read_ct, signal: shutdown.signal });
+    } finally {
+      heartbeat.stop();
+    }
     await db.rpc('queue_delete', { p_queue: QUEUES.scanRequests, p_msg_id: msg.msg_id });
   }
   return messages.length > 0;
