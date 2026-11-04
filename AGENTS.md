@@ -75,7 +75,7 @@ Estos valores deben coincidir en tres lugares: `packages/shared/src/index.ts`, l
 - **Monorepo:** pnpm workspaces + Turborepo. Node 24. `pnpm@10`.
 - **Web:** Next.js 16 (App Router) + React 19, CSS Modules (sin Tailwind ni librería de UI). Desplegada en Vercel.
 - **Worker:** Node + `tsx`, en contenedor Docker (Railway/Fly/VM).
-- **Datos:** Supabase — Postgres, Auth, Storage, colas (`pgmq`) y `pg_cron`.
+- **Datos:** Supabase — Postgres, Auth, Storage, colas (`pgmq`) y `pg_cron`. CLI v3 (la misma versión fija en CI): los comandos apuntan al stack local por defecto; contra un proyecto hospedado se usa `--remote` y, sin terminal interactiva, `--yes`.
 - **IA:** OpenRouter (API compatible con OpenAI) para resúmenes ejecutivos.
 - **Validación:** `zod` v4.
 - **Tests:** `vitest`.
@@ -336,7 +336,7 @@ pnpm install
 cp .env.example .env            # completar con las llaves que imprime `pnpm db:start`
 cp .env apps/web/.env.local     # Next.js solo lee variables de su propia carpeta
 pnpm db:start                   # Supabase local (Docker): migraciones + seed
-pnpm db:types                   # regenera packages/db/src/database.types.ts
+pnpm db:types                   # regenera packages/db/src/database.types.ts (la CLI v3 no lo formatea; el script pasa Prettier)
 pnpm dev                        # web (localhost:3000) + worker
 pnpm typecheck                  # tsc en todos los paquetes
 pnpm test                       # vitest
@@ -346,7 +346,7 @@ docker compose -f infra/docker-compose.yml up --build   # worker + SpiderFoot
 
 Para ver el dashboard sin Supabase: `WARDEN_DEV_SKIP_AUTH=true` (la config `web` de `.claude/launch.json` ya lo hace).
 
-Admin local: `supabase/seeds/dev-admin.sql` crea `admin@warden.test` (contraseña en ese archivo) activo y con rol `admin` en cada `pnpm db:start` / `pnpm db:reset`. Solo aplica en local y CI; `supabase db push` no ejecuta seeds.
+Admin local: `supabase/seeds/dev-admin.sql` crea `admin@warden.test` (contraseña en ese archivo) activo y con rol `admin` en cada `pnpm db:start` / `pnpm db:reset`. Solo aplica en local y CI; `supabase db push --remote` no ejecuta seeds.
 
 Primer admin en un entorno real: regístrate y ejecuta
 ```sql

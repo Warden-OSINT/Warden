@@ -71,8 +71,8 @@ export async function persistResults(db: Db, scan: ScanRow, results: SourceResul
         severity: f.severity,
         confidence: f.confidence,
         observed_at: f.observedAt.toISOString(),
-        // Los colectores producen evidencia serializable a JSON.
-        evidence: f.evidence as Json,
+        // Los colectores producen evidencia serializable a JSON; la columna es not null.
+        evidence: f.evidence as NonNullable<Json>,
       };
     });
 
