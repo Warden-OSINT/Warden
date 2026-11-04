@@ -43,10 +43,9 @@ export async function collectAll(
 
     await setProgress(db, scanId, { current_source: collector.sourceKey });
     const started = performance.now();
+    let result: CollectorResult;
     try {
-      const result = await collector.collect(target, ctx);
-      await recordSource(db, scanId, collector.sourceKey, 'ok', result, performance.now() - started);
-      results.push({ sourceKey: collector.sourceKey, result });
+      result = await collector.collect(target, ctx);
     } catch (err) {
       // Cancelado o apagado del worker: la fuente no falló, se cortó. Se detiene el escaneo.
       if (signal.aborted) {
@@ -55,7 +54,11 @@ export async function collectAll(
       }
       const message = err instanceof Error ? err.message : String(err);
       await recordSource(db, scanId, collector.sourceKey, 'failed', null, performance.now() - started, message);
+      continue;
     }
+    // Fuera del try: un error de BD aquí no es un fallo de la fuente, y debe tumbar el escaneo.
+    await recordSource(db, scanId, collector.sourceKey, 'ok', result, performance.now() - started);
+    results.push({ sourceKey: collector.sourceKey, result });
   }
 
   await setProgress(db, scanId, { current_source: null });
@@ -80,7 +83,8 @@ async function recordSource(
 ) {
   const assets = result?.assets.length ?? 0;
   const findings = result?.findings.length ?? 0;
-  await db.from('scan_sources').upsert(
+  // score.ts y resolve.ts leen estas filas: si no se guardan, el dominio saldría del KRI sin aviso.
+  const { error } = await db.from('scan_sources').upsert(
     {
       scan_id: scanId,
       source_key: sourceKey,
@@ -95,4 +99,5 @@ async function recordSource(
     },
     { onConflict: 'scan_id,source_key' },
   );
+  if (error) throw error;
 }

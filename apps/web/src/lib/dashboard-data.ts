@@ -51,6 +51,8 @@ export const IMPLEMENTED_SOURCES = [EXPOSURE_SOURCE_KEY, EMAIL_SOURCE_KEY, REPUT
 export type ImplementedSource = (typeof IMPLEMENTED_SOURCES)[number];
 
 const RECENT_FINDINGS = 8;
+/** Hallazgos de un mismo escaneo comparten observed_at: se traen de sobra para elegir los más severos. */
+const RECENT_FINDINGS_WINDOW = 200;
 const TREND_POINTS = 12;
 
 export type DashboardState =
@@ -201,22 +203,25 @@ async function loadRecentFindings(supabase: Supabase, companyId: string): Promis
       .eq('company_id', companyId)
       .eq('status', 'open')
       .order('observed_at', { ascending: false })
-      .order('severity')
-      .limit(RECENT_FINDINGS),
+      .limit(RECENT_FINDINGS_WINDOW),
     supabase.from('sources').select('source_key, name'),
   ]);
   if (error) throw error;
   const sourceName = new Map((sources ?? []).map((s) => [s.source_key, s.name]));
 
-  return data.map((f) => ({
-    id: f.id,
-    indicator: f.title,
-    domain: f.risk_domains.key as RiskDomainKey,
-    severity: f.severity as Severity,
-    confidence: f.confidence as Confidence,
-    source: f.finding_sources.map((s) => sourceName.get(s.source_key) ?? s.source_key).join(', ') || '—',
-    observedAt: f.observed_at,
-  }));
+  return data
+    .map((f) => ({
+      id: f.id,
+      indicator: f.title,
+      domain: f.risk_domains.key as RiskDomainKey,
+      severity: f.severity as Severity,
+      confidence: f.confidence as Confidence,
+      source: f.finding_sources.map((s) => sourceName.get(s.source_key) ?? s.source_key).join(', ') || '—',
+      observedAt: f.observed_at,
+    }))
+    // severity es text en BD: ordenarla allí sería alfabético (critical, high, info, low, medium).
+    .sort((a, b) => Date.parse(b.observedAt) - Date.parse(a.observedAt) || severityRank(a.severity) - severityRank(b.severity))
+    .slice(0, RECENT_FINDINGS);
 }
 
 /** Puntajes guardados por el worker (pipeline/score.ts). */

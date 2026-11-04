@@ -29,25 +29,12 @@ export async function registerCompany(_prev: ActionResult, formData: FormData): 
   } = await supabase.auth.getUser();
   if (!user) return { error: 'Sesión expirada' };
 
-  const { data: company, error } = await supabase
-    .from('companies')
-    .insert({ name, primary_domain: domain, created_by: user.id })
-    .select('id')
-    .single();
+  // Empresa y dominio principal (lo declara el usuario, así que entra confirmado) en una sola
+  // transacción: si algo falla, no queda una empresa sin su dominio.
+  const { error } = await supabase.rpc('register_company', { p_name: name, p_domain: domain });
   if (error) {
     return { error: error.code === '23505' ? 'Ese dominio ya está registrado' : permissionMessage(error) };
   }
-
-  // El dominio principal lo declara el usuario, así que entra confirmado.
-  const { error: assetError } = await supabase.from('assets').insert({
-    company_id: company.id,
-    asset_type: 'domain',
-    value: domain,
-    discovery_source: 'manual',
-    attribution_status: 'confirmed',
-    confirmed_by: user.id,
-  });
-  if (assetError) return { error: permissionMessage(assetError) };
 
   revalidatePath('/');
   return {};
