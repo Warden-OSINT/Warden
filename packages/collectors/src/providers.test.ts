@@ -4,11 +4,16 @@ import { decodeTxtRecord, emailDnsProvider } from './email_dns/provider';
 import { mapHibpDomain } from './hibp/mapper';
 import { hibpProvider } from './hibp/provider';
 import { fetchPublicJson, SourceHttpError } from './http/public-json';
+import { resetResolverHealth } from './dns/resolver';
 
 const target = { primaryDomain: 'example.com', confirmedDomains: [] };
 const context = { signal: new AbortController().signal, getSecret: () => 'a'.repeat(32) };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  // El resolvedor recuerda cuál se cayó: sin esto un test afectaría al siguiente.
+  resetResolverHealth();
+});
 
 describe('Cliente HTTP público', () => {
   it('rechaza destinos de la empresa y bloquea redirects en hosts autorizados', async () => {
@@ -38,10 +43,10 @@ describe('Proveedor de correos', () => {
     expect(decodeTxtRecord('v=DMARC1; p=none; rua=mailto:d@example.com')).toBe('v=DMARC1; p=none; rua=mailto:d@example.com');
   });
 
-  it('consulta solo el resolvedor público y distingue SERVFAIL de NXDOMAIN', async () => {
+  it('consulta solo resolvedores públicos y distingue SERVFAIL de NXDOMAIN', async () => {
     const fetchMock = vi.fn(async (url: URL) => {
-      expect(url.hostname).toBe('dns.google');
-      expect(url.searchParams.get('edns_client_subnet')).toBe('0.0.0.0/0');
+      expect(['dns.google', 'cloudflare-dns.com']).toContain(url.hostname);
+      if (url.hostname === 'dns.google') expect(url.searchParams.get('edns_client_subnet')).toBe('0.0.0.0/0');
       return json(url.searchParams.get('name')?.startsWith('_dmarc') ? { Status: 3 } : { Status: 2 });
     });
     vi.stubGlobal('fetch', fetchMock);
@@ -54,7 +59,8 @@ describe('Proveedor de correos', () => {
       expect(result.result.observations.find((v) => v.ruleId === 'email.spf.records')?.state).toBe('unknown');
       expect(result.result.observations.find((v) => v.ruleId === 'email.dmarc.records')?.state).toBe('absent');
     }
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    // SERVFAIL se reintenta en Cloudflare (SPF y MX); el NXDOMAIN de DMARC basta con dns.google.
+    expect(fetchMock).toHaveBeenCalledTimes(5);
   });
 });
 

@@ -1,8 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { crtshCollector, fetchCrtsh } from './collector';
+import { resetResolverHealth } from '../dns/resolver';
 
 const ctx = { signal: new AbortController().signal, getSecret: () => undefined };
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  // El resolvedor recuerda cuál se cayó: sin esto un test afectaría al siguiente.
+  resetResolverHealth();
+});
 
 describe('crtshCollector', () => {
   it('busca subdominios del dominio sin www.', async () => {

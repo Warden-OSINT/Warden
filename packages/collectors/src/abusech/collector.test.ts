@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { CollectorTarget } from '../types';
 import { abusechCollector, reputationNames } from './collector';
+import { resetResolverHealth } from '../dns/resolver';
 
 const ctx = { signal: new AbortController().signal, getSecret: (ref: string) => (ref === 'ABUSECH_AUTH_KEY' ? 'k' : undefined) };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
@@ -12,7 +13,11 @@ const target: CollectorTarget = {
     { type: 'ip', value: '198.51.100.7' },
   ],
 };
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  // El resolvedor recuerda cuál se cayó: sin esto un test afectaría al siguiente.
+  resetResolverHealth();
+});
 
 /** Simula dns.google y abuse.ch; `urlhaus`/`threatfox` responden por host consultado. */
 function stubFeeds(options: { urlhaus?: Record<string, unknown>; threatfox?: Record<string, unknown>; fail?: string } = {}) {

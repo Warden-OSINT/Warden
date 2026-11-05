@@ -24,17 +24,17 @@ async function queryAll<T>(
   for (let i = 0; i < items.length; i += CONCURRENCY) {
     signal.throwIfAborted();
     const batch = await Promise.all(items.slice(i, i + CONCURRENCY).map(query));
-    // Sin respuesta en todo el primer lote, dns.google no está accesible (red que lo bloquea):
+    // Sin respuesta en todo el primer lote, ningún resolvedor DoH está accesible (red que los bloquea):
     // seguir costaría un timeout por consulta, varios minutos en total.
     if (failFast && i === 0 && batch.every((a) => a === undefined)) {
-      throw new Error(`dns.google no respondió a las primeras ${batch.length} consultas; ¿la red bloquea dns.google?`);
+      throw new Error(`El DNS público (dns.google y Cloudflare) no respondió a las primeras ${batch.length} consultas; ¿la red bloquea DNS sobre HTTPS?`);
     }
     answers.push(...batch);
   }
   return answers;
 }
 
-// Genera dominios parecidos y los consulta en dns.google (DoH). Nunca contacta al dominio
+// Genera dominios parecidos y los consulta en el DNS público (DoH: dns.google o Cloudflare). Nunca contacta al dominio
 // evaluado ni a los parecidos (sin HTTP, banners ni SMTP): solo el resolvedor público.
 export const typosquatCollector: Collector = {
   sourceKey: SOURCE_KEY,
@@ -56,7 +56,7 @@ export const typosquatCollector: Collector = {
     }
     const failed = permutations.filter((_, i) => answers[i] === undefined).map((p) => p.domain);
     if (failed.length > permutations.length * MAX_FAILURE_RATIO) {
-      throw new Error(`dns.google no respondió para ${failed.length} de ${permutations.length} dominios parecidos`);
+      throw new Error(`El DNS público (dns.google y Cloudflare) no respondió para ${failed.length} de ${permutations.length} dominios parecidos`);
     }
 
     const registered = permutations

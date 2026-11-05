@@ -37,7 +37,7 @@ Los usuarios nuevos se crean con `is_active = false`; un admin los activa en `pu
 | `certs` | Certificados (CT logs + CAA) | crt.sh ✅ |
 | `secrets` | Secretos filtrados en repos públicos | gitleaks ✅ (repos de activos `code_org`) |
 | `reputation` | Listas de malware/phishing/botnets | abuse.ch ✅ (URLhaus, ThreatFox, Feodo) |
-| `impersonation` | Typosquatting | `typosquat` ✅ (técnicas de dnstwist, solo vía dns.google) |
+| `impersonation` | Typosquatting | `typosquat` ✅ (técnicas de dnstwist, solo vía DNS público DoH) |
 
 Estos valores deben coincidir en tres lugares: `packages/shared/src/index.ts`, los CHECK constraints de las migraciones y `supabase/seed.sql`.
 
@@ -134,7 +134,7 @@ Warden-/
 │   │       ├── gitleaks/       collector.ts (GitHub API + git + gitleaks) + mapper.ts + tests (secrets)
 │   │       ├── internetdb/     collector.ts + mapper.ts + tests — puertos/CVE por IP (exposure)
 │   │       ├── abusech/        collector.ts + mapper.ts + tests — URLhaus/ThreatFox/Feodo (reputation)
-│   │       ├── dns/            resolve-ipv4.ts + doh.ts — consultas vía dns.google (DoH)
+│   │       ├── dns/            resolver.ts (DoH: dns.google con respaldo en Cloudflare) + doh.ts + resolve-ipv4.ts
 │   │       ├── email_dns/      provider.ts (DoH) + collector.ts/mapper.ts — observaciones de correo → hallazgos
 │   │       ├── hibp/           provider.ts + mapper.ts — brechas agregadas por dominio
 │   │       ├── http/           public-json.ts — cliente HTTP restringido compartido

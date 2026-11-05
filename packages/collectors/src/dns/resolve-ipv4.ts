@@ -1,15 +1,7 @@
-import { z } from 'zod';
-import { fetchPublicJson } from '../http/public-json';
+import { queryDoh } from './doh';
 
-const DNS_TYPE_A = 1;
 const MAX_NAMES = 200;
 const CONCURRENCY = 4;
-
-const responseSchema = z.object({
-  Status: z.number().int(),
-  TC: z.boolean().optional(),
-  Answer: z.array(z.object({ type: z.number().int(), data: z.string() })).optional(),
-});
 
 const IPV4 = /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/;
 
@@ -39,8 +31,8 @@ export interface ResolvedIps {
 }
 
 /**
- * Resuelve registros A mediante el resolvedor público de Google (DoH). La consulta
- * llega a dns.google, no a los servidores de la empresa evaluada.
+ * Resuelve registros A en el DNS público (DoH, con respaldo). La consulta llega al
+ * resolvedor público, no a los servidores de la empresa evaluada.
  */
 export async function resolveIpv4(names: readonly string[], signal: AbortSignal): Promise<ResolvedIps> {
   const unique = [...new Set(names.map((n) => n.toLowerCase()))].slice(0, MAX_NAMES);
@@ -71,17 +63,5 @@ export async function resolveIpv4(names: readonly string[], signal: AbortSignal)
 
 /** undefined = la consulta falló; [] = el nombre no tiene registros A. */
 async function queryA(name: string, signal: AbortSignal): Promise<string[] | undefined> {
-  try {
-    const url = new URL('https://dns.google/resolve');
-    url.searchParams.set('name', name);
-    url.searchParams.set('type', 'A');
-    url.searchParams.set('edns_client_subnet', '0.0.0.0/0');
-    const response = responseSchema.parse(await fetchPublicJson(url, signal));
-    if (response.TC || ![0, 3].includes(response.Status)) return undefined;
-    // Las respuestas incluyen la cadena CNAME; solo interesan los registros A finales.
-    return (response.Answer ?? []).filter((r) => r.type === DNS_TYPE_A).map((r) => r.data.trim());
-  } catch {
-    signal.throwIfAborted();
-    return undefined;
-  }
+  return (await queryDoh(name, 'A', signal))?.records;
 }

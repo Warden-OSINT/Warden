@@ -23,7 +23,7 @@
 | `reputation` | `abusech` | ✅ URLhaus, ThreatFox, Feodo (requiere `ABUSECH_AUTH_KEY`) |
 | `certs` | `crtsh` | ✅ comodines, vencimientos, CAA |
 | `secrets` | `gitleaks` | ✅ repos públicos de activos `code_org` (requiere `git` y `gitleaks`) |
-| `impersonation` | `typosquat` | ✅ dominios parecidos vía dns.google |
+| `impersonation` | `typosquat` | ✅ dominios parecidos vía DNS público (dns.google, respaldo Cloudflare) |
 
 ## Fase 1 — Hallazgos de `certs` ✅
 
@@ -34,7 +34,7 @@ hace ≤ 30), falta de CAA y emisoras recientes fuera de CAA. Reintenta 429/502/
 ## Fase 2 — Colectores ✅
 
 - **`typosquat`** (antes `dnstwist`): técnicas de dnstwist implementadas en TypeScript; solo
-  consulta dns.google. Si el primer lote de consultas falla completo (red que bloquea dns.google),
+  consulta el DNS público (dns.google, respaldo Cloudflare). Si el primer lote de consultas falla completo (red que bloquea DoH),
   la fuente se detiene en segundos.
 - **`gitleaks`**: repos públicos de las organizaciones `code_org` (`github.com/<org>`); sin
   forks, ≤ 200 MB y hasta 20 repos por escaneo. Sin organizaciones confirmadas, la fuente falla
