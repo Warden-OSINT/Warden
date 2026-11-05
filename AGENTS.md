@@ -53,7 +53,7 @@ Estos valores deben coincidir en tres lugares: `packages/shared/src/index.ts`, l
 | Dashboard | 🟡 Datos reales de Supabase (`lib/dashboard-data.ts`): registro de la empresa, paneles de exposición, correo y reputación, escaneo manual, confirmación de activos y habilitar `internetdb` (admin). KRI y notas por dominio desde `scores` (dominios sin datos marcados como cobertura parcial) y aviso si el último escaneo disparó una alerta. Sin sesión y con `WARDEN_DEV_SKIP_AUTH` usa `mock-dashboard.ts` |
 | `POST /api/scans` | ✅ Encola escaneos manuales |
 | Worker (cola → colectores → persistencia) | ✅ Funciona |
-| Colectores del pipeline | ✅ `crtsh` (subdominios + hallazgos de `certs`: comodines, vencimientos, CAA), `typosquat` (dominios parecidos → `impersonation`), `gitleaks` (repos públicos de activos `code_org` → `secrets`; requiere `git` y `gitleaks` en el worker), `internetdb` (IPs → hallazgos de `exposure`, avisos de CDN), `email_dns` (SPF/DMARC/MX → hallazgos de `email`) y `abusech` (URLhaus/ThreatFox/Feodo → hallazgos de `reputation`; requiere `ABUSECH_AUTH_KEY`). Se habilitan desde la tarjeta **Fuentes de datos** del dashboard (admin). `hibp` sigue fuera |
+| Colectores del pipeline | ✅ `crtsh` (subdominios + hallazgos de `certs`: comodines, vencimientos, CAA; si crt.sh no responde usa Cert Spotter como respaldo, solo certificados vigentes), `typosquat` (dominios parecidos → `impersonation`), `gitleaks` (repos públicos de activos `code_org` → `secrets`; requiere `git` y `gitleaks` en el worker), `internetdb` (IPs → hallazgos de `exposure`, avisos de CDN), `email_dns` (SPF/DMARC/MX → hallazgos de `email`) y `abusech` (URLhaus/ThreatFox/Feodo → hallazgos de `reputation`; requiere `ABUSECH_AUTH_KEY`). Se habilitan desde la tarjeta **Fuentes de datos** del dashboard (admin). `hibp` sigue fuera |
 | Motor de scoring | ✅ `@warden/scoring` (`computeScore`, puro) + `pipeline/score.ts` en el worker; pesos v1 en `seed.sql` (puntos por severidad/confianza como SUPUESTO) |
 | Resúmenes con IA | ✅ Tras calificar, el worker encola `report_requests` (`request_report`) y genera el resumen con `@warden/ai` (`pipeline/report.ts`): contexto con nota, dominios y títulos de los hallazgos más severos, pasado por `redact()`. Se guarda en `reports` como `draft` (borrador sin revisión humana). Requiere `OPENROUTER_API_KEY` y `OPENROUTER_MODEL` |
 | Análisis de correo / credenciales en brechas | 🟡 `@warden/risk-analysis` y adaptadores DNS/HIBP implementados; aún fuera de `runScan` y del catálogo productivo (ver `docs/risk-analysis.md`) |
@@ -129,7 +129,7 @@ Warden-/
 │   │       ├── registry.ts     Mapa de colectores activos
 │   │       ├── no-contact-guard.ts
 │   │       ├── fingerprint.ts  Huella estable para deduplicar hallazgos
-│   │       ├── crtsh/          collector.ts + mapper.ts (subdominios) + certs.ts (hallazgos de certs) + tests
+│   │       ├── crtsh/          collector.ts + mapper.ts (subdominios) + certs.ts (hallazgos de certs) + certspotter.ts (respaldo) + tests
 │   │       ├── typosquat/      fuzz.ts (permutaciones) + collector.ts/mapper.ts + tests (impersonation)
 │   │       ├── gitleaks/       collector.ts (GitHub API + git + gitleaks) + mapper.ts + tests (secrets)
 │   │       ├── internetdb/     collector.ts + mapper.ts + tests — puertos/CVE por IP (exposure)
@@ -365,6 +365,7 @@ update public.profiles set role = 'admin', is_active = true where id = '<tu-user
 | `OPENROUTER_API_KEY`, `OPENROUTER_MODEL` | worker | Resúmenes con IA |
 | `SPIDERFOOT_URL` | worker | API de SpiderFoot |
 | `ABUSECH_AUTH_KEY` | worker | Auth-Key gratuita de abuse.ch (URLhaus, ThreatFox); cuenta de la empresa |
+| `CERTSPOTTER_API_KEY` | worker | Opcional: llave gratuita de SSLMate para el respaldo Cert Spotter de crt.sh; cuenta de la empresa |
 | `HIBP_API_KEY` | worker | API de brechas; requiere suscripción y dominio previamente verificado en HIBP |
 | `QUEUE_VISIBILITY_TIMEOUT` | worker | Segundos de invisibilidad del mensaje (900) |
 
