@@ -1,12 +1,17 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { CollectorTarget } from '../types';
 import { emailDnsCollector, emailDomains } from './collector';
+import { resetResolverHealth } from '../dns/resolver';
 
 const ctx = { signal: new AbortController().signal, getSecret: () => undefined };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
 // Formato real de la API JSON de dns.google: TXT sin comillas y con fragmentos ya unidos.
 const txt = (value: string) => ({ type: 16, data: value });
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  // El resolvedor recuerda cuál se cayó: sin esto un test afectaría al siguiente.
+  resetResolverHealth();
+});
 
 /** Simula dns.google con registros por nombre y tipo; lo no definido responde NXDOMAIN. */
 function stubDns(records: Record<string, { type: number; data: string }[] | 'fail'>) {

@@ -129,7 +129,7 @@ $env:WARDEN_DEV_SKIP_AUTH = "true"; pnpm --filter @warden/web dev
 | `Your project's URL and Key are required` | Falta la llave en `apps/web/.env.local`, o no reiniciaste `pnpm dev`. |
 | Inicias sesión pero no ves datos | Tu perfil no está activo; en Studio → SQL Editor: `update public.profiles set role = 'admin', is_active = true where id = (select id from auth.users where email = 'tu@email');` |
 | Un escaneo se queda "En cola" | El worker apunta a otra base: `SUPABASE_URL` y `SUPABASE_SECRET_KEY` del `.env` raíz deben ser los de `supabase status` (local), no los de la nube. Reinicia `pnpm dev`. |
-| Escaneo "Con fallos": `dns.google no respondió…` | La red bloquea DNS por HTTPS (pasa en la red de la universidad, incluso vía hotspot si el teléfono comparte esa Wi-Fi). Usa datos móviles; si https://api.ipify.org muestra una IP `131.178.x.x`, sigues saliendo por el Tec. El historial está en **Escaneos**. |
+| Escaneo "Con fallos": `El DNS público (dns.google y Cloudflare) no respondió…` | Warden ya prueba Cloudflare si `dns.google` falla; si fallan los dos, la red bloquea DNS por HTTPS (pasa en la red de la universidad, incluso vía hotspot si el teléfono comparte esa Wi-Fi). Usa datos móviles; si https://api.ipify.org muestra una IP `131.178.x.x`, sigues saliendo por el Tec. El historial está en **Escaneos**. |
 
 ### Entornos reales: primer admin
 

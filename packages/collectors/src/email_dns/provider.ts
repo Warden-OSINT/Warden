@@ -1,11 +1,6 @@
 import { domainSchema, emailEvidenceSchema, type EmailEvidence, type EvidenceProvider } from '@warden/risk-analysis';
 import { z } from 'zod';
-import { fetchPublicJson } from '../http/public-json';
-
-const responseSchema = z.object({
-  Status: z.number().int(), TC: z.boolean().optional(),
-  Answer: z.array(z.object({ type: z.number().int(), data: z.string() })).optional(),
-});
+import { dohLookup } from '../dns/resolver';
 
 /**
  * Une fragmentos de un único TXT, conservando la separación entre registros.
@@ -24,19 +19,15 @@ export function decodeTxtRecord(value: string): string {
 }
 
 async function queryDns(name: string, type: 'TXT' | 'MX', signal: AbortSignal): Promise<EmailEvidence['spf']> {
+  const response = await dohLookup(name, type, signal);
+  if (!response) return { status: 'unavailable' };
+  if (response.status === 3) return { status: 'ok', records: [] };
   try {
-    const url = new URL('https://dns.google/resolve');
-    url.searchParams.set('name', name);
-    url.searchParams.set('type', type);
-    url.searchParams.set('edns_client_subnet', '0.0.0.0/0');
-    const response = responseSchema.parse(await fetchPublicJson(url, signal));
-    if (response.TC || ![0, 3].includes(response.Status)) return { status: 'unavailable' };
-    if (response.Status === 3) return { status: 'ok', records: [] };
-    const records = (response.Answer ?? []).filter((v) => v.type === (type === 'TXT' ? 16 : 15))
+    const records = response.answers.filter((v) => v.type === (type === 'TXT' ? 16 : 15))
       .map((v) => type === 'TXT' ? decodeTxtRecord(v.data) : v.data);
     return { status: 'ok', records };
   } catch {
-    signal.throwIfAborted();
+    // TXT con un formato no reconocido: mejor "sin dato" que un SPF mal leído.
     return { status: 'unavailable' };
   }
 }

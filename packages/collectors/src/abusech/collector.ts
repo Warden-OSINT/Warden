@@ -56,7 +56,7 @@ export const abusechCollector: Collector = {
     const names = reputationNames(target);
     const { ips: resolved, failed } = await resolveIpv4(names, ctx.signal);
     if (failed.length === names.length) {
-      throw new Error(`dns.google no respondió para ningún dominio (${failed.length} consultados)`);
+      throw new Error(`El DNS público (dns.google y Cloudflare) no respondió para ningún dominio (${failed.length} consultados)`);
     }
     for (const asset of target.assets) {
       if (asset.type === 'ip' && isPublicIpv4(asset.value) && !resolved.has(asset.value)) {

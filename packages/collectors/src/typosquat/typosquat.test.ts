@@ -2,10 +2,15 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { typosquatCollector } from './collector';
 import { generatePermutations, splitDomain } from './fuzz';
 import { mapLookalikes } from './mapper';
+import { resetResolverHealth } from '../dns/resolver';
 
 const ctx = { signal: new AbortController().signal, getSecret: () => undefined };
 const json = (body: unknown) => new Response(JSON.stringify(body));
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  // El resolvedor recuerda cuál se cayó: sin esto un test afectaría al siguiente.
+  resetResolverHealth();
+});
 
 describe('splitDomain', () => {
   it('separa el dominio registrable e ignora subdominios', () => {
@@ -75,21 +80,21 @@ describe('typosquatCollector', () => {
     expect(result.findings.map((f) => [f.evidence.lookalike, f.severity])).toEqual([['exampel.com', 'high']]);
   });
 
-  it('se detiene en el primer lote si dns.google no responde (red que lo bloquea)', async () => {
+  it('se detiene en el primer lote si ningún resolvedor responde (red que los bloquea)', async () => {
     const fetchMock = vi.fn(async () => new Response('error', { status: 500 }));
     vi.stubGlobal('fetch', fetchMock);
     await expect(typosquatCollector.collect({ companyId: 'c1', primaryDomain: 'example.com', assets: [] }, ctx))
-      .rejects.toThrow('dns.google no respondió a las primeras 8 consultas');
-    // Un solo lote, no los cientos de consultas con su timeout cada una.
-    expect(fetchMock).toHaveBeenCalledTimes(8);
+      .rejects.toThrow('El DNS público (dns.google y Cloudflare) no respondió a las primeras 8 consultas');
+    // Un solo lote (8 nombres × 2 resolvedores), no los cientos de consultas con su timeout cada una.
+    expect(fetchMock).toHaveBeenCalledTimes(16);
   });
 
-  it('falla si dns.google no responde para demasiados parecidos', async () => {
+  it('falla si el DNS público no responde para demasiados parecidos', async () => {
     let calls = 0;
     // El primer lote responde; después todo falla.
     vi.stubGlobal('fetch', vi.fn(async () => (++calls <= 8 ? json({ Status: 3 }) : new Response('error', { status: 500 }))));
     await expect(typosquatCollector.collect({ companyId: 'c1', primaryDomain: 'example.com', assets: [] }, ctx))
-      .rejects.toThrow(/dns\.google no respondió para \d+ de \d+ dominios parecidos/);
+      .rejects.toThrow(/DNS público \(dns\.google y Cloudflare\) no respondió para \d+ de \d+ dominios parecidos/);
   });
 
   it('se detiene al cancelar el escaneo', async () => {

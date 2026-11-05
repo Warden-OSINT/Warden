@@ -2,9 +2,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { issuerOrganization } from './certs';
 import { dnOrganization, fetchCertSpotter, MAX_PAGES, toCrtshEntry } from './certspotter';
 import { crtshCollector } from './collector';
+import { resetResolverHealth } from '../dns/resolver';
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  // El resolvedor recuerda cuál se cayó: sin esto un test afectaría al siguiente.
+  resetResolverHealth();
+});
 
 const issuance = (id: string, names: string[], issuerDn = 'CN=R11,O=Let\'s Encrypt,C=US') => ({
   id,
