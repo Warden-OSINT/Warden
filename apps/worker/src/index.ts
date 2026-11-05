@@ -2,6 +2,8 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { QUEUES, type ReportRequestMessage, type ScanRequestMessage } from '@warden/shared';
 import { config } from './config';
 import { runScan } from './jobs/run-scan';
+import { createSmtpMailer } from './mailer';
+import { deliverEmailAlerts } from './pipeline/notify';
 import { generateReport } from './pipeline/report';
 import { keepInvisible } from './pipeline/visibility';
 import { db } from './supabase';
@@ -60,12 +62,24 @@ async function pollReportRequests(): Promise<boolean> {
   return messages.length > 0;
 }
 
+const mailer = createSmtpMailer();
+
+async function pollEmailAlerts(): Promise<boolean> {
+  // Sin SMTP los envíos quedan pendientes; salen cuando se configure.
+  if (!mailer || !config.ALERT_EMAIL_FROM) return false;
+  const processed = await deliverEmailAlerts(db, mailer, { from: config.ALERT_EMAIL_FROM, webUrl: config.WARDEN_WEB_URL ?? null });
+  return processed > 0;
+}
+
 console.log('[worker] escuchando las colas', QUEUES.scanRequests, 'y', QUEUES.reportRequests);
+console.log(mailer
+  ? `[worker] alertas por correo vía ${config.SMTP_HOST}:${config.SMTP_PORT}`
+  : '[worker] SMTP_HOST sin configurar: las alertas por correo quedan pendientes');
 
 while (!shutdown.signal.aborted) {
   try {
-    // Los escaneos tienen prioridad; los resúmenes se generan cuando no hay escaneos en cola.
-    const didWork = (await pollScanRequests()) || (await pollReportRequests());
+    // Los escaneos tienen prioridad; los resúmenes y los correos se atienden cuando no hay escaneos en cola.
+    const didWork = (await pollScanRequests()) || (await pollReportRequests()) || (await pollEmailAlerts());
     if (!didWork) await sleep(IDLE_DELAY_MS, undefined, { signal: shutdown.signal });
   } catch (err) {
     if (shutdown.signal.aborted) break;

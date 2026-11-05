@@ -46,9 +46,16 @@ export type ScanSourceStatus = (typeof SCAN_SOURCE_STATUSES)[number];
 export const ALERT_TYPES = ['grade_drop', 'threshold_crossed'] as const;
 export type AlertType = (typeof ALERT_TYPES)[number];
 
-// in_app: solo visible en la web; email y webhook aún no tienen envío implementado.
+// in_app: la alerta tal como se ve en la web. Su envío por correo se registra aparte, en
+// integration_outbox (destination = 'email'); webhook aún no tiene envío implementado.
 export const ALERT_CHANNELS = ['email', 'webhook', 'in_app'] as const;
 export type AlertChannel = (typeof ALERT_CHANNELS)[number];
+
+// Deben coincidir con los CHECK de integration_outbox.
+export const OUTBOX_DESTINATIONS = ['siem', 'soar', 'email'] as const;
+export type OutboxDestination = (typeof OUTBOX_DESTINATIONS)[number];
+export const OUTBOX_STATUSES = ['pending', 'sent', 'failed'] as const;
+export type OutboxStatus = (typeof OUTBOX_STATUSES)[number];
 
 /** true si `a` es peor nota que `b` (A es la mejor). */
 export function isWorseGrade(a: Grade, b: Grade): boolean {

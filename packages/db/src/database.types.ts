@@ -415,37 +415,54 @@ export type Database = {
       }
       integration_outbox: {
         Row: {
+          alert_id: string | null
           attempts: number
           created_at: string
           destination: string
           event_type: string
           id: number
+          last_error: string | null
+          next_attempt_at: string
           payload: NonNullable<Json>
           sent_at: string | null
           status: string
         }
         ComputedFields: never
         Insert: {
+          alert_id?: string | null
           attempts?: number
           created_at?: string
           destination: string
           event_type: string
           id?: never
+          last_error?: string | null
+          next_attempt_at?: string
           payload: NonNullable<Json>
           sent_at?: string | null
           status?: string
         }
         Update: {
+          alert_id?: string | null
           attempts?: number
           created_at?: string
           destination?: string
           event_type?: string
           id?: never
+          last_error?: string | null
+          next_attempt_at?: string
           payload?: NonNullable<Json>
           sent_at?: string | null
           status?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "integration_outbox_alert_id_fkey"
+            columns: ["alert_id"]
+            isOneToOne: false
+            referencedRelation: "alerts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -976,6 +993,32 @@ export type Database = {
       }
       app_role: { Args: Record<PropertyKey, never>; Returns: string }
       cancel_scan: { Args: { p_scan_id: string }; Returns: boolean }
+      claim_outbox: {
+        Args: {
+          p_destination: string
+          p_lease_seconds: number
+          p_limit: number
+        }
+        Returns: {
+          alert_id: string | null
+          attempts: number
+          created_at: string
+          destination: string
+          event_type: string
+          id: number
+          last_error: string | null
+          next_attempt_at: string
+          payload: NonNullable<Json>
+          sent_at: string | null
+          status: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "integration_outbox"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       enqueue_due_scans: { Args: Record<PropertyKey, never>; Returns: number }
       is_admin: { Args: Record<PropertyKey, never>; Returns: boolean }
       is_member: { Args: Record<PropertyKey, never>; Returns: boolean }

@@ -2,7 +2,7 @@ import Link from 'next/link';
 import styles from '@/components/dashboard/dashboard.module.css';
 import { AlertList } from '@/components/reports/alert-list';
 import { AlertSettingsForm } from '@/components/settings/alert-settings-form';
-import { loadRecentAlerts } from '@/lib/alerts';
+import { loadEmailDeliveries, loadRecentAlerts } from '@/lib/alerts';
 import { loadActiveCompany } from '@/lib/dashboard-data';
 import { loadAlertSettings } from '@/lib/scoring-settings';
 import { createClient } from '@/lib/supabase/server';
@@ -22,20 +22,26 @@ export default async function AlertSettingsPage() {
   const supabase = await createClient();
   const company = await loadActiveCompany(supabase);
   const alerts = company ? await loadRecentAlerts(supabase, company.id, 50) : [];
+  const deliveries = state.isAdmin ? await loadEmailDeliveries(supabase, alerts.map((a) => a.id)) : undefined;
 
   return (
     <div className={styles.page}>
       <div>
         <Link href="/settings" className={styles.linkButton}>← Configuración</Link>
         <h1 className={styles.pageTitle}>Alertas</h1>
-        <p className={styles.subtitle}>Se registran al calificar cada escaneo · el envío por correo está pendiente</p>
+        <p className={styles.subtitle}>Se registran al calificar cada escaneo y se envían por correo a los destinatarios</p>
       </div>
       {state.isAdmin ? (
         <AlertSettingsForm settings={state.settings} />
       ) : (
         <p className={styles.notice}>Solo un administrador puede cambiar las reglas de alerta.</p>
       )}
-      <AlertList alerts={alerts} title="Historial de alertas" hint="Últimas 50, de la más reciente a la más antigua" />
+      <AlertList
+        alerts={alerts}
+        deliveries={deliveries}
+        title="Historial de alertas"
+        hint="Últimas 50, de la más reciente a la más antigua"
+      />
     </div>
   );
 }
