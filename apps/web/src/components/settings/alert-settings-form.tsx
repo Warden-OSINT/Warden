@@ -39,7 +39,7 @@ export function AlertSettingsForm({ settings }: { settings: AlertSettings }) {
             placeholder="seguridad@empresa.com"
           />
           <span className={styles.subText}>
-            Se guardan para cuando exista el envío por correo; por ahora las alertas solo se ven en Warden.
+            Cada alerta nueva se envía por correo a estos destinatarios. Sin destinatarios, solo se ve en Warden.
           </span>
         </label>
         <div>

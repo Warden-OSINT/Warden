@@ -53,7 +53,7 @@ Estos valores deben coincidir en tres lugares: `packages/shared/src/index.ts`, l
 | Dashboard | 🟡 Datos reales de Supabase (`lib/dashboard-data.ts`): registro de la empresa, paneles de exposición, correo y reputación, escaneo manual, confirmación de activos y habilitar `internetdb` (admin). KRI y notas por dominio desde `scores` (dominios sin datos marcados como cobertura parcial) y aviso si el último escaneo disparó una alerta. Sin sesión y con `WARDEN_DEV_SKIP_AUTH` usa `mock-dashboard.ts` |
 | `POST /api/scans` | ✅ Encola escaneos manuales |
 | Worker (cola → colectores → persistencia) | ✅ Funciona |
-| Colectores del pipeline | ✅ `crtsh` (subdominios + hallazgos de `certs`: comodines, vencimientos, CAA), `typosquat` (dominios parecidos → `impersonation`), `gitleaks` (repos públicos de activos `code_org` → `secrets`; requiere `git` y `gitleaks` en el worker), `internetdb` (IPs → hallazgos de `exposure`, avisos de CDN), `email_dns` (SPF/DMARC/MX → hallazgos de `email`) y `abusech` (URLhaus/ThreatFox/Feodo → hallazgos de `reputation`; requiere `ABUSECH_AUTH_KEY`). Se habilitan desde la tarjeta **Fuentes de datos** del dashboard (admin). `hibp` sigue fuera |
+| Colectores del pipeline | ✅ `crtsh` (subdominios + hallazgos de `certs`: comodines, vencimientos, CAA; si crt.sh no responde usa Cert Spotter como respaldo, solo certificados vigentes), `typosquat` (dominios parecidos → `impersonation`), `gitleaks` (repos públicos de activos `code_org` → `secrets`; requiere `git` y `gitleaks` en el worker), `internetdb` (IPs → hallazgos de `exposure`, avisos de CDN), `email_dns` (SPF/DMARC/MX → hallazgos de `email`) y `abusech` (URLhaus/ThreatFox/Feodo → hallazgos de `reputation`; requiere `ABUSECH_AUTH_KEY`). Se habilitan desde la tarjeta **Fuentes de datos** del dashboard (admin). `hibp` sigue fuera |
 | Motor de scoring | ✅ `@warden/scoring` (`computeScore`, puro) + `pipeline/score.ts` en el worker; pesos v1 en `seed.sql` (puntos por severidad/confianza como SUPUESTO) |
 | Resúmenes con IA | ✅ Tras calificar, el worker encola `report_requests` (`request_report`) y genera el resumen con `@warden/ai` (`pipeline/report.ts`): contexto con nota, dominios y títulos de los hallazgos más severos, pasado por `redact()`. Se guarda en `reports` como `draft` (borrador sin revisión humana). Requiere `OPENROUTER_API_KEY` y `OPENROUTER_MODEL` |
 | Análisis de correo / credenciales en brechas | 🟡 `@warden/risk-analysis` y adaptadores DNS/HIBP implementados; aún fuera de `runScan` y del catálogo productivo (ver `docs/risk-analysis.md`) |
@@ -62,8 +62,8 @@ Estos valores deben coincidir en tres lugares: `packages/shared/src/index.ts`, l
 | Página Activos (`/assets`) | ✅ Inventario con filtros, conteo de hallazgos abiertos, alta manual (entra confirmada) y confirmación/descarte individual o masivo (`lib/assets.ts`, `setAssetsStatus`, `addAsset`) |
 | Página Reportes (`/reports`) | ✅ Un reporte por escaneo calificado (`lib/reports.ts`): KRI, notas por dominio, cobertura, fuentes, hallazgos abiertos y alertas; imprimible/PDF desde el navegador. Resumen ejecutivo con IA (estado, riesgos, recomendaciones y botón Regenerar) |
 | Configuración (`/settings`) | ✅ Usuarios, **Pesos del KRI** (crear y activar versiones; `lib/scoring-settings.ts`), **Programación de escaneos** (frecuencia, próxima ejecución en hora local y pausa; `lib/schedule-settings.ts`, `saveSchedule`) y **Alertas** (umbral, destinatarios e historial). Editar requiere admin |
-| Alertas | 🟡 El worker registra `grade_drop` / `threshold_crossed` tras calificar (`pipeline/alerts.ts`), canal `in_app`. Envío por correo/webhook pendiente |
-| Outbox SIEM/SOAR, archivado | 🔴 Solo tablas |
+| Alertas | ✅ El worker registra `grade_drop` / `threshold_crossed` tras calificar (`pipeline/alerts.ts`, canal `in_app`) y, si hay destinatarios, un envío en `integration_outbox` (`destination = 'email'`) que manda por SMTP con reintentos (`pipeline/notify.ts`, `mailer.ts`). Sin `SMTP_HOST` quedan pendientes. Webhook pendiente |
+| Outbox SIEM/SOAR, archivado | 🔴 Solo tablas (`integration_outbox` ya se usa para el correo) |
 
 **El modelo de scoring está definido en [docs/scoring-model.md](docs/scoring-model.md); no lo cambies sin acordarlo con el equipo.** Los puntos por severidad y factores por confianza de la versión 1 siguen como SUPUESTO. Con datos reales, KRI y notas son `null` hasta que el worker guarde el primer puntaje en `scores`. Qué está hecho y qué falta del KRI (IA, envío de alertas, HIBP…): [docs/kri-plan.md](docs/kri-plan.md).
 
@@ -129,7 +129,7 @@ Warden-/
 │   │       ├── registry.ts     Mapa de colectores activos
 │   │       ├── no-contact-guard.ts
 │   │       ├── fingerprint.ts  Huella estable para deduplicar hallazgos
-│   │       ├── crtsh/          collector.ts + mapper.ts (subdominios) + certs.ts (hallazgos de certs) + tests
+│   │       ├── crtsh/          collector.ts + mapper.ts (subdominios) + certs.ts (hallazgos de certs) + certspotter.ts (respaldo) + tests
 │   │       ├── typosquat/      fuzz.ts (permutaciones) + collector.ts/mapper.ts + tests (impersonation)
 │   │       ├── gitleaks/       collector.ts (GitHub API + git + gitleaks) + mapper.ts + tests (secrets)
 │   │       ├── internetdb/     collector.ts + mapper.ts + tests — puertos/CVE por IP (exposure)
@@ -218,7 +218,7 @@ Reglas:
    - **persist** (`pipeline/persist.ts`): activos descubiertos → `assets` con `attribution_status = 'pending'` (un analista los confirma). Hallazgos → upsert en `findings` por `(company_id, fingerprint)` **sin tocar el estado de triage**; fuentes en `finding_sources`.
    - **resolve** (`pipeline/resolve.ts`): cierra hallazgos que su fuente dejó de observar en escaneos exitosos consecutivos.
    - **score** (`pipeline/score.ts`): `computeScore` con los hallazgos `open` y la versión de pesos del escaneo; solo cuentan los dominios con alguna fuente `ok`. Guarda `scores` (con `excluded_domains`) y `score_domains`.
-   - **alerts** (`pipeline/alerts.ts`): compara la nota con el puntaje anterior y el umbral de `alert_settings`; registra como mucho una alerta `in_app` por escaneo.
+   - **alerts** (`pipeline/alerts.ts`): compara la nota con el puntaje anterior y el umbral de `alert_settings`; registra como mucho una alerta `in_app` por escaneo y, con destinatarios en `alert_settings`, su envío por correo en `integration_outbox`. El worker atiende esos envíos cuando no hay escaneos ni resúmenes (`claim_outbox` los aparta 2 min; hasta 5 intentos con espera de 1, 5, 15 y 60 min, luego `failed`). El correo solo lleva notas, KRI y enlace al reporte, nunca evidencia.
    - **report (IA):** `rpc('request_report')` encola `{ score_id }` en `report_requests`. El worker atiende esa cola cuando no hay escaneos (`pipeline/report.ts`) y guarda el resultado en `reports` (`pending` → `draft` o `failed` con `error_message`). Un fallo de la IA nunca tumba el escaneo; la web permite regenerar.
    - Marca `completed` o `failed`.
    - **Progreso y cancelación:** durante la recolección el worker guarda `scans.current_source` y `sources_total` (la web muestra "Consultando X · n de N"). Un miembro puede detenerlo con `rpc('cancel_scan')` → `status = 'cancelled'`; el worker lo revisa cada 3 s (`pipeline/cancellation.ts`), aborta las consultas en vuelo y no persiste ni califica resultados parciales. Uno cancelado en cola se descarta al leerlo.
@@ -363,8 +363,11 @@ update public.profiles set role = 'admin', is_active = true where id = '<tu-user
 | `SUPABASE_URL` | worker | URL de Supabase |
 | `SUPABASE_SECRET_KEY` | worker | Service role — **solo worker** |
 | `OPENROUTER_API_KEY`, `OPENROUTER_MODEL` | worker | Resúmenes con IA |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD` | worker | SMTP de la empresa para las alertas; en local, Mailpit (`127.0.0.1:54325`) |
+| `ALERT_EMAIL_FROM`, `WARDEN_WEB_URL` | worker | Remitente de las alertas y URL de la web para el enlace al reporte |
 | `SPIDERFOOT_URL` | worker | API de SpiderFoot |
 | `ABUSECH_AUTH_KEY` | worker | Auth-Key gratuita de abuse.ch (URLhaus, ThreatFox); cuenta de la empresa |
+| `CERTSPOTTER_API_KEY` | worker | Opcional: llave gratuita de SSLMate para el respaldo Cert Spotter de crt.sh; cuenta de la empresa |
 | `HIBP_API_KEY` | worker | API de brechas; requiere suscripción y dominio previamente verificado en HIBP |
 | `QUEUE_VISIBILITY_TIMEOUT` | worker | Segundos de invisibilidad del mensaje (900) |
 

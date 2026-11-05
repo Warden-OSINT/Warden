@@ -12,7 +12,7 @@
 | 1 — Hallazgos de `certs` | ✅ Hecha | #29 |
 | 2 — Colectores `typosquat` y `gitleaks` | ✅ Hecha | #29 |
 | 3 — Motor de scoring | ✅ Hecha | #30 |
-| 4 — Después del score | 🟡 Hecha; falta el envío de alertas | #31, IA en `feat/resumen-ia` |
+| 4 — Después del score | 🟡 Hecha; falta el webhook de alertas | #31, IA en `feat/resumen-ia`, correo en `feat/alertas-correo` |
 | Extra — Progreso y cancelación de escaneos | ✅ Hecha | #32 |
 | Extra — Dashboard y ayudas emergentes | ✅ Hecha | este PR |
 
@@ -67,8 +67,9 @@ Pendiente:
       genera el resumen con `@warden/ai` (contexto redactado con `redact()`) y lo guarda en
       `reports` con `model_used`, `prompt_version` y `context_hash`. El reporte muestra el
       estado, los riesgos y las recomendaciones, con botón Regenerar.
-- [ ] Envío real de alertas (correo/webhook) vía `integration_outbox`; los destinatarios ya se
-      guardan en `alert_settings`.
+- [x] **Envío de alertas por correo** vía `integration_outbox` y SMTP (`pipeline/notify.ts`),
+      con reintentos; el estado de cada envío se ve en Configuración → Alertas.
+- [ ] Envío por webhook.
 - [ ] PDF generado en el servidor (hoy: imprimir / guardar como PDF desde el navegador).
 
 ## Extras hechos fuera del plan original

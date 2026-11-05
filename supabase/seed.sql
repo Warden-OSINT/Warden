@@ -29,7 +29,9 @@ insert into public.sources (source_key, name, risk_domain_id, is_no_contact, lic
 
 -- Solo el nombre de la variable de entorno del worker, nunca la llave.
 insert into public.source_credentials (source_key, secret_ref) values
-  ('abusech', 'ABUSECH_AUTH_KEY');
+  ('abusech', 'ABUSECH_AUTH_KEY'),
+  -- Opcional: respaldo Cert Spotter de crt.sh (sin llave, límite menor y solo para evaluación).
+  ('crtsh', 'CERTSPOTTER_API_KEY');
 
 -- Versión 1 de pesos, activa. Los pesos por dominio son los de la propuesta aprobada
 -- (suman 100). SUPUESTO (pendiente de validar con el equipo): puntos por severidad y
