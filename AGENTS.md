@@ -61,7 +61,7 @@ Estos valores deben coincidir en tres lugares: `packages/shared/src/index.ts`, l
 | Página Hallazgos (`/findings`) | ✅ Filtros, evidencia y triage (`triageFinding`; motivo obligatorio para falso positivo / riesgo aceptado) |
 | Página Activos (`/assets`) | ✅ Inventario con filtros, conteo de hallazgos abiertos, alta manual (entra confirmada) y confirmación/descarte individual o masivo (`lib/assets.ts`, `setAssetsStatus`, `addAsset`) |
 | Página Reportes (`/reports`) | ✅ Un reporte por escaneo calificado (`lib/reports.ts`): KRI, notas por dominio, cobertura, fuentes, hallazgos abiertos y alertas; imprimible/PDF desde el navegador. Resumen ejecutivo con IA (estado, riesgos, recomendaciones y botón Regenerar) |
-| Configuración (`/settings`) | ✅ Usuarios, **Pesos del KRI** (crear y activar versiones; `lib/scoring-settings.ts`), **Programación de escaneos** (frecuencia, próxima ejecución en hora local y pausa; `lib/schedule-settings.ts`, `saveSchedule`) y **Alertas** (umbral, destinatarios e historial). Editar requiere admin |
+| Configuración (`/settings`) | ✅ Usuarios, **Pesos del KRI** (crear y activar versiones; `lib/scoring-settings.ts`), **Programación de escaneos** (frecuencia, próxima ejecución en hora CST y pausa; `lib/schedule-settings.ts`, `saveSchedule`) y **Alertas** (umbral, destinatarios e historial). Editar requiere admin |
 | Alertas | ✅ El worker registra `grade_drop` / `threshold_crossed` tras calificar (`pipeline/alerts.ts`, canal `in_app`) y, si hay destinatarios, un envío en `integration_outbox` (`destination = 'email'`) que manda por SMTP con reintentos (`pipeline/notify.ts`, `mailer.ts`). Sin `SMTP_HOST` quedan pendientes. Webhook pendiente |
 | Outbox SIEM/SOAR, archivado | 🔴 Solo tablas (`integration_outbox` ya se usa para el correo) |
 
@@ -291,6 +291,7 @@ Estilo de código:
 - Next 16 usa `src/proxy.ts` (antes `middleware.ts`).
 - Route Handlers: valida el body, delega en una RPC con la sesión del usuario, traduce `42501` a 403.
 - Las formas del dashboard viven en `lib/dashboard-types.ts` (`DashboardData`, `CompanyOverview`, `ExposureHost`, …); `dashboard-data.ts` y `mock-dashboard.ts` producen la misma forma.
+- **Fechas en hora del centro de México (CST, `America/Mexico_City`; sin horario de verano desde 2022)**: muéstralas con `formatDate` / `formatDateTime` de `components/dashboard/format.ts` y captúralas con `toZonedInput` / `zonedInputToIso`. En BD se guardan en UTC (`timestamptz`). El correo de alertas del worker usa la misma zona.
 - Las mutaciones del dashboard son Server Actions en `app/(dashboard)/actions.ts` con la sesión del usuario; RLS decide el permiso (una actualización filtrada por RLS devuelve 0 filas, no error).
 
 ### Base de datos
