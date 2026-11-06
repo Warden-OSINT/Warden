@@ -3,37 +3,30 @@
 import { useActionState, useEffect, useState } from 'react';
 import { saveSchedule, type ActionResult } from '@/app/(dashboard)/settings/actions';
 import styles from '@/components/dashboard/dashboard.module.css';
+import { TIME_ZONE_LABEL, toZonedInput, zonedInputToIso } from '@/components/dashboard/format';
 import { FREQUENCY_LABELS, SCHEDULE_FREQUENCIES, type Schedule } from '@/lib/schedule';
 import settings from './settings.module.css';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
-/** ISO → valor de <input type="datetime-local"> en la hora local del navegador. */
-function toLocalInput(date: Date): string {
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
-
-/** Sugerencia para la primera programación: el próximo lunes a las 03:00, fuera de horario laboral. */
-function nextMondayAt3(): Date {
-  const d = new Date();
-  d.setDate(d.getDate() + ((8 - d.getDay()) % 7 || 7));
-  d.setHours(3, 0, 0, 0);
-  return d;
+/** Sugerencia para la primera programación: el próximo lunes a las 03:00 CST, fuera de horario laboral. */
+function nextMondayAt3(): string {
+  const [y, m, d] = toZonedInput(new Date().toISOString()).slice(0, 10).split('-').map(Number) as [number, number, number];
+  const today = new Date(Date.UTC(y, m - 1, d));
+  today.setUTCDate(today.getUTCDate() + ((8 - today.getUTCDay()) % 7 || 7));
+  return `${today.getUTCFullYear()}-${pad(today.getUTCMonth() + 1)}-${pad(today.getUTCDate())}T03:00`;
 }
 
 export function ScheduleForm({ schedule }: { schedule: Schedule | null }) {
   const [state, formAction, pending] = useActionState<ActionResult, FormData>(saveSchedule, {});
-  // La hora local solo se conoce en el navegador: se calcula tras montar para que el HTML
-  // del servidor y el del cliente coincidan.
+  // La fecha se captura en CST, sin importar la zona del navegador. La sugerencia depende de
+  // "ahora": se calcula tras montar para que el HTML del servidor y el del cliente coincidan.
   const [localValue, setLocalValue] = useState('');
-  const [zone, setZone] = useState('');
   useEffect(() => {
-    setLocalValue(toLocalInput(schedule ? new Date(schedule.nextRunAt) : nextMondayAt3()));
-    setZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
+    setLocalValue(schedule ? toZonedInput(schedule.nextRunAt) : nextMondayAt3());
   }, [schedule]);
 
-  const parsed = localValue ? new Date(localValue) : null;
-  const iso = parsed && !Number.isNaN(parsed.getTime()) ? parsed.toISOString() : '';
+  const iso = zonedInputToIso(localValue);
 
   return (
     <section className={styles.card}>
@@ -66,7 +59,7 @@ export function ScheduleForm({ schedule }: { schedule: Schedule | null }) {
             required
           />
           <span className={styles.subText}>
-            Hora local{zone ? ` (${zone})` : ''}. Conviene fuera de horario laboral: el escaneo tarda varios minutos.
+            Hora del centro de México ({TIME_ZONE_LABEL}). Conviene fuera de horario laboral: el escaneo tarda varios minutos.
           </span>
         </label>
         <input type="hidden" name="nextRunAt" value={iso} />
