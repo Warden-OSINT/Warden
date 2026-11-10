@@ -23,8 +23,9 @@ export interface AlertEmail {
 const escapeHtml = (value: string) =>
   value.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 
+// Misma zona que la web (components/dashboard/format.ts): CST, sin horario de verano desde 2022.
 const dateFormat = new Intl.DateTimeFormat('es', {
-  day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'UTC',
+  day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'America/Mexico_City',
 });
 
 function headline(ctx: AlertEmailContext): string {
@@ -40,7 +41,7 @@ function headline(ctx: AlertEmailContext): string {
  */
 export function buildAlertEmail(ctx: AlertEmailContext): AlertEmail {
   const title = headline(ctx);
-  const when = `${dateFormat.format(new Date(ctx.computedAt))} UTC`;
+  const when = `${dateFormat.format(new Date(ctx.computedAt))} CST`;
   const change = ctx.previousGrade ? `${ctx.previousGrade} → ${ctx.newGrade}` : ctx.newGrade;
   const lines = [
     title,
