@@ -181,8 +181,8 @@ Reglas:
 - `apps/web` **no importa** `collectors` ni `ai`: el trabajo pesado, el tráfico a fuentes OSINT y las llaves viven en el worker.
 - Los paquetes exportan TS fuente vía `"exports": { ".": "./src/index.ts" }`. Si la web necesita un paquete nuevo, añádelo a `transpilePackages` en `apps/web/next.config.ts`.
 - `@warden/risk-analysis` contiene contratos/registro/ejecutor y módulos `email` y `credentials`.
-  `credentials` no es un valor de `RiskDomainKey` ni reemplaza `secrets`; su incorporación al KRI
-  requiere una decisión explícita y migraciones. `email_dns` está registrado en `collectAll` y en el
+  `credentials` no es un valor de `RiskDomainKey`; según `docs/scoring-model.md` (regla 7) contará
+  dentro de `secrets` al integrarse, sin agregar un séptimo dominio. `email_dns` está registrado en `collectAll` y en el
   seed (vía `email_dns/collector.ts`); `hibp` sigue sin registrarse.
 
 ---
@@ -417,8 +417,9 @@ Reglas para trabajar con estos módulos:
   módulo `credentials` siguen sin integrarse.
 - **Sin scoring:** los analizadores reportan observaciones (`observed | absent | unknown`) con cobertura `partial`,
   sin puntajes, letras ni severidades. Un fallo de consulta nunca significa ausencia de riesgo.
-- **`credentials` no es un `RiskDomainKey`** ni reemplaza `secrets`; su resultado lleva
-  `riskDomain: null` hasta decidir cómo entra al KRI (ver [docs/sources.md](docs/sources.md)).
+- **`credentials` no es un `RiskDomainKey`**: contará dentro de `secrets` cuando se integre
+  ([docs/scoring-model.md](docs/scoring-model.md), regla 7). Hasta entonces su resultado lleva
+  `riskDomain: null`.
 - **Correo:** solo inspecciona publicación DNS (SPF, DMARC, MX y selectores DKIM conocidos).
   No enumerar selectores DKIM por fuerza bruta.
 - **HIBP:** requiere `HIBP_API_KEY` (solo en el worker) y dominios verificados por la empresa.

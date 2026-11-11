@@ -1,6 +1,6 @@
 # Plan para completar el KRI
 
-> Plan de trabajo, actualizado el 29 de octubre de 2026. El modelo de scoring está en
+> Plan de trabajo, actualizado el 11 de noviembre de 2026. El modelo de scoring está en
 > [scoring-model.md](scoring-model.md); aquí se ordena el trabajo y se registra qué está hecho.
 > PRs en [Warden-OSINT/Warden](https://github.com/Warden-OSINT/Warden) (antes `Rorronarvaez1/Warden-`).
 
@@ -12,9 +12,12 @@
 | 1 — Hallazgos de `certs` | ✅ Hecha | #29 |
 | 2 — Colectores `typosquat` y `gitleaks` | ✅ Hecha | #29 |
 | 3 — Motor de scoring | ✅ Hecha | #30 |
-| 4 — Después del score | 🟡 Hecha; falta el webhook de alertas | #31, IA en `feat/resumen-ia`, correo en `feat/alertas-correo` |
+| 4 — Después del score | 🟡 Hecha; falta el webhook de alertas | #31 (reportes y alertas), #35 (resumen con IA), #41 (alertas por correo) |
 | Extra — Progreso y cancelación de escaneos | ✅ Hecha | #32 |
-| Extra — Dashboard y ayudas emergentes | ✅ Hecha | este PR |
+| Extra — Dashboard y ayudas emergentes | ✅ Hecha | #34 |
+| Extra — Programación de escaneos | ✅ Hecha | #40 |
+| Extra — Respaldos de fuentes (Cert Spotter, DNS de Cloudflare) | ✅ Hecha | #42, #43 |
+| Extra — Fechas en hora del centro de México | ✅ Hecha | #44 |
 
 | Dominio | Fuente | ¿Genera hallazgos? |
 |---|---|---|
@@ -51,24 +54,24 @@ parcial). El dashboard, Escaneos y Reportes muestran el KRI; la tendencia usa un
 
 ## Fase 4 — Después del score 🟡
 
-Hecho (sin IA):
+Hecho:
 
 - [x] **Alertas**: tras calificar, el worker registra `grade_drop` o `threshold_crossed`
       (`pipeline/alerts.ts`, canal `in_app`). Se ven en el dashboard, en Reportes y en
       Configuración → Alertas.
 - [x] **Página Reportes**: un reporte por escaneo calificado, imprimible, con explorador
-      interactivo de hallazgos por dominio. El resumen ejecutivo queda reservado para la IA.
+      interactivo de hallazgos por dominio.
 - [x] **Configuración de alertas** (admin): umbral de nota y destinatarios.
 - [x] **Versiones de pesos** (admin): crear una versión a partir de la activa y activarla.
-
-Pendiente:
-
 - [x] **Resumen ejecutivo con IA**: tras calificar se encola `report_requests`; el worker
       genera el resumen con `@warden/ai` (contexto redactado con `redact()`) y lo guarda en
       `reports` con `model_used`, `prompt_version` y `context_hash`. El reporte muestra el
       estado, los riesgos y las recomendaciones, con botón Regenerar.
 - [x] **Envío de alertas por correo** vía `integration_outbox` y SMTP (`pipeline/notify.ts`),
       con reintentos; el estado de cada envío se ve en Configuración → Alertas.
+
+Pendiente:
+
 - [ ] Envío por webhook.
 - [ ] PDF generado en el servidor (hoy: imprimir / guardar como PDF desde el navegador).
 
@@ -84,6 +87,8 @@ Pendiente:
 ## Pendientes
 
 - `hibp` (opcional): registrarlo como colector y contarlo dentro de `secrets`.
+- Creación de usuarios en producción: hoy `/settings/users` solo funciona en local y los
+  usuarios se crean desde el panel de Supabase ([manual de instalación](manual-instalacion.md), 8.1).
 - Construir la imagen Docker del worker y probarla (incluye `git` y `gitleaks`).
 - Extender las ayudas emergentes a Hallazgos, Reportes y Escaneos (severidad, confianza,
   estados de triage).
