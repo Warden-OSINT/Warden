@@ -1,4 +1,7 @@
 erDiagram
+    %% Generado a partir de supabase/migrations y packages/db/src/database.types.ts.
+    %% Si cambia el esquema, regenera este diagrama.
+
     %% ============ Identidad y control ============
     PROFILES {
         uuid id PK "referencia a auth.users"
@@ -7,7 +10,6 @@ erDiagram
         boolean is_active
         timestamptz created_at
     }
-
     AUDIT_LOG {
         bigint id PK
         uuid actor_id FK
@@ -28,11 +30,10 @@ erDiagram
         uuid created_by FK
         timestamptz created_at
     }
-
     ASSETS {
         uuid id PK
         uuid company_id FK
-        text asset_type "domain / subdomain / ip / ip_range / asn"
+        text asset_type "domain / subdomain / ip / ip_range / asn / code_org"
         text value
         text discovery_source "auto / manual"
         text attribution_status "pending / confirmed / discarded"
@@ -40,10 +41,9 @@ erDiagram
         timestamptz first_seen
         timestamptz last_seen
     }
-
     SCHEDULES {
         uuid id PK
-        uuid company_id FK
+        uuid company_id FK, UK
         text frequency "weekly / monthly"
         timestamptz next_run_at
         boolean is_active
@@ -56,38 +56,56 @@ erDiagram
         text name
         text description
     }
-
     SOURCES {
-        text source_key PK "shodan / checkdmarc / crtsh / gitleaks / abusech / dnstwist"
+        text source_key PK "internetdb / email_dns / crtsh / gitleaks / abusech / typosquat / spiderfoot"
         text name
         smallint risk_domain_id FK
         boolean is_no_contact "compuerta de pasividad"
         text license
         boolean is_enabled
     }
-
     SOURCE_CREDENTIALS {
         uuid id PK
-        text source_key FK
-        text secret_ref "referencia al gestor, nunca el secreto"
+        text source_key FK, UK
+        text secret_ref "nombre de la variable de entorno del worker"
         boolean is_valid
         timestamptz last_checked_at
     }
 
-    %% ============ Evaluaciones ============
+    %% ============ Scoring versionado ============
+    SCORING_WEIGHTS {
+        uuid id PK
+        integer version UK
+        uuid created_by FK
+        timestamptz effective_from
+        boolean is_active
+    }
+    SCORING_WEIGHT_ITEMS {
+        uuid weight_version_id PK, FK
+        smallint risk_domain_id PK, FK
+        numeric weight "suma 100"
+        jsonb severity_points
+        jsonb confidence_factors
+    }
+
+    %% ============ Escaneos y hallazgos ============
     SCANS {
         uuid id PK
         uuid company_id FK
         uuid weight_version_id FK
-        text status "queued / running / completed / failed"
+        text status "queued / running / completed / failed / cancelled"
         text trigger_type "manual / scheduled"
+        uuid requested_by FK
+        timestamptz created_at
         timestamptz started_at
         timestamptz finished_at
-        text raw_payload_path "Object Storage"
+        text raw_payload_path "Storage"
         text raw_payload_hash
         text error_message
+        text current_source FK "fuente en curso (progreso)"
+        smallint sources_total
+        uuid cancelled_by FK
     }
-
     SCAN_SOURCES {
         uuid id PK
         uuid scan_id FK
@@ -96,16 +114,17 @@ erDiagram
         integer items_returned
         integer latency_ms
         text message
+        integer assets_returned
+        integer findings_returned
+        jsonb notices "observaciones que no son hallazgos"
     }
-
-    %% ============ Hallazgos ============
     FINDINGS {
         uuid id PK
         uuid company_id FK
         uuid scan_id FK
         uuid asset_id FK
         smallint risk_domain_id FK
-        text fingerprint UK "clave de deduplicacion"
+        text fingerprint "clave de deduplicacion"
         text title
         text severity "critical / high / medium / low / info"
         text confidence "high / medium / low"
@@ -116,89 +135,75 @@ erDiagram
         jsonb evidence
         text evidence_path
     }
-
     FINDING_SOURCES {
-        uuid finding_id FK
-        text source_key FK
+        uuid finding_id PK, FK
+        text source_key PK, FK
         jsonb raw_reference
+        uuid last_seen_scan_id FK
     }
 
-    %% ============ Calificacion ============
-    SCORING_WEIGHTS {
-        uuid id PK
-        integer version UK
-        uuid created_by FK
-        timestamptz effective_from
-        boolean is_active
-    }
-
-    SCORING_WEIGHT_ITEMS {
-        uuid weight_version_id FK
-        smallint risk_domain_id FK
-        numeric weight "suma 100"
-        jsonb severity_points
-        jsonb confidence_factors
-    }
-
+    %% ============ Resultados ============
     SCORES {
         uuid id PK
         uuid company_id FK
-        uuid scan_id FK
+        uuid scan_id FK, UK
         uuid weight_version_id FK
         numeric global_score
-        char grade "A / B / C / D / E / F"
         timestamptz computed_at
+        text_array excluded_domains "dominios sin fuente ok (cobertura parcial)"
+        text grade "A / B / C / D / E / F"
     }
-
     SCORE_DOMAINS {
-        uuid score_id FK
-        smallint risk_domain_id FK
+        uuid score_id PK, FK
+        smallint risk_domain_id PK, FK
         numeric domain_score
-        char grade
         integer findings_count
+        text grade
     }
-
-    %% ============ Reportes y alertas ============
     REPORTS {
         uuid id PK
-        uuid score_id FK
+        uuid score_id FK, UK
         text summary_text
         text model_used
         text prompt_version
         text context_hash
-        text status "draft / validated / published / failed"
+        text status "pending / draft / validated / published / failed"
         text pdf_path
         timestamptz generated_at
+        jsonb content
+        text error_message
+        timestamptz requested_at
     }
 
+    %% ============ Alertas, integracion y archivo ============
     ALERT_SETTINGS {
         uuid id PK
-        char threshold_grade
         jsonb recipients
         uuid created_by FK
+        text threshold_grade
     }
-
     ALERTS {
         uuid id PK
         uuid score_id FK
-        text alert_type
-        char previous_grade
-        char new_grade
-        text channel "email / webhook"
+        text alert_type "grade_drop / threshold_crossed"
+        text channel "in_app / email / webhook"
         timestamptz sent_at
+        text new_grade
+        text previous_grade
     }
-
-    %% ============ Integracion SOC y archivado ============
     INTEGRATION_OUTBOX {
         bigint id PK
-        text destination "siem / soar"
+        text destination "email / siem / soar (hoy solo email)"
         text event_type
-        jsonb payload "formato CEF o ECS"
+        jsonb payload "notas, KRI y enlace al reporte (sin evidencia)"
         text status "pending / sent / failed"
         smallint attempts
+        timestamptz created_at
         timestamptz sent_at
+        uuid alert_id FK
+        text last_error
+        timestamptz next_attempt_at
     }
-
     ARCHIVES {
         uuid id PK
         uuid company_id FK
@@ -212,38 +217,38 @@ erDiagram
     }
 
     %% ============ Relaciones ============
-    PROFILES ||--o{ COMPANIES : registra
-    PROFILES ||--o{ AUDIT_LOG : genera
-    PROFILES ||--o{ SCORING_WEIGHTS : configura
-
-    COMPANIES ||--o{ ASSETS : posee
-    COMPANIES ||--o| SCHEDULES : programa
-    COMPANIES ||--o{ SCANS : evaluada_en
-    COMPANIES ||--o{ FINDINGS : acumula
-    COMPANIES ||--o{ SCORES : calificada_con
-    COMPANIES ||--o{ ARCHIVES : archiva
-
-    ASSETS ||--o{ FINDINGS : origina
-
-    SCANS ||--o{ SCAN_SOURCES : consulta
-    SCANS ||--o{ FINDINGS : produce
-    SCANS ||--|| SCORES : resulta_en
-
-    SOURCES ||--o| SOURCE_CREDENTIALS : usa
-    SOURCES ||--o{ SCAN_SOURCES : invocada_en
-    SOURCES ||--o{ FINDING_SOURCES : reporta
-
-    RISK_DOMAINS ||--o{ SOURCES : alimentado_por
-    RISK_DOMAINS ||--o{ FINDINGS : clasifica
-    RISK_DOMAINS ||--o{ SCORE_DOMAINS : puntua
-    RISK_DOMAINS ||--o{ SCORING_WEIGHT_ITEMS : pondera
-
-    FINDINGS ||--o{ FINDING_SOURCES : confirmada_por
-
-    SCORING_WEIGHTS ||--o{ SCORING_WEIGHT_ITEMS : contiene
-    SCORING_WEIGHTS ||--o{ SCANS : aplicada_en
-    SCORING_WEIGHTS ||--o{ SCORES : version_usada
-
-    SCORES ||--o{ SCORE_DOMAINS : desglosa
-    SCORES ||--o| REPORTS : documentada_en
+    PROFILES |o--o{ ALERT_SETTINGS : created_by
     SCORES ||--o{ ALERTS : dispara
+    COMPANIES ||--o{ ARCHIVES : archiva
+    COMPANIES ||--o{ ASSETS : posee
+    PROFILES |o--o{ ASSETS : confirmed_by
+    PROFILES ||--o{ AUDIT_LOG : genera
+    PROFILES ||--o{ COMPANIES : registra
+    FINDINGS ||--o{ FINDING_SOURCES : confirmada_por
+    SCANS |o--o{ FINDING_SOURCES : last_seen_scan
+    SOURCES ||--o{ FINDING_SOURCES : reporta
+    ASSETS ||--o{ FINDINGS : origina
+    COMPANIES ||--o{ FINDINGS : acumula
+    RISK_DOMAINS ||--o{ FINDINGS : clasifica
+    SCANS ||--o{ FINDINGS : produce
+    PROFILES |o--o{ FINDINGS : status_by
+    ALERTS |o--o{ INTEGRATION_OUTBOX : alert
+    SCORES ||--o| REPORTS : documentada_en
+    SCANS ||--o{ SCAN_SOURCES : consulta
+    SOURCES ||--o{ SCAN_SOURCES : invocada_en
+    PROFILES |o--o{ SCANS : cancelled_by
+    COMPANIES ||--o{ SCANS : evaluada_en
+    SOURCES |o--o{ SCANS : current_source
+    PROFILES |o--o{ SCANS : requested_by
+    SCORING_WEIGHTS ||--o{ SCANS : aplicada_en
+    COMPANIES ||--o| SCHEDULES : programa
+    RISK_DOMAINS ||--o{ SCORE_DOMAINS : puntua
+    SCORES ||--o{ SCORE_DOMAINS : desglosa
+    COMPANIES ||--o{ SCORES : calificada_con
+    SCANS ||--|| SCORES : resulta_en
+    SCORING_WEIGHTS ||--o{ SCORES : version_usada
+    RISK_DOMAINS ||--o{ SCORING_WEIGHT_ITEMS : pondera
+    SCORING_WEIGHTS ||--o{ SCORING_WEIGHT_ITEMS : contiene
+    PROFILES ||--o{ SCORING_WEIGHTS : configura
+    SOURCES ||--o| SOURCE_CREDENTIALS : usa
+    RISK_DOMAINS ||--o{ SOURCES : alimentado_por
