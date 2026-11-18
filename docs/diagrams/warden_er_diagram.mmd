@@ -193,7 +193,7 @@ erDiagram
     }
     INTEGRATION_OUTBOX {
         bigint id PK
-        text destination "email / siem / soar (hoy solo email)"
+        text destination "email / siem / soar (email y siem en uso)"
         text event_type
         jsonb payload "notas, KRI y enlace al reporte (sin evidencia)"
         text status "pending / sent / failed"
@@ -203,6 +203,7 @@ erDiagram
         uuid alert_id FK
         text last_error
         timestamptz next_attempt_at
+        uuid score_id FK
     }
     ARCHIVES {
         uuid id PK
@@ -233,6 +234,7 @@ erDiagram
     SCANS ||--o{ FINDINGS : produce
     PROFILES |o--o{ FINDINGS : status_by
     ALERTS |o--o{ INTEGRATION_OUTBOX : alert
+    SCORES |o--o{ INTEGRATION_OUTBOX : score
     SCORES ||--o| REPORTS : documentada_en
     SCANS ||--o{ SCAN_SOURCES : consulta
     SOURCES ||--o{ SCAN_SOURCES : invocada_en

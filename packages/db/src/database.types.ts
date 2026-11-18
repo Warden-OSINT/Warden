@@ -424,6 +424,7 @@ export type Database = {
           last_error: string | null
           next_attempt_at: string
           payload: NonNullable<Json>
+          score_id: string | null
           sent_at: string | null
           status: string
         }
@@ -438,6 +439,7 @@ export type Database = {
           last_error?: string | null
           next_attempt_at?: string
           payload: NonNullable<Json>
+          score_id?: string | null
           sent_at?: string | null
           status?: string
         }
@@ -451,6 +453,7 @@ export type Database = {
           last_error?: string | null
           next_attempt_at?: string
           payload?: NonNullable<Json>
+          score_id?: string | null
           sent_at?: string | null
           status?: string
         }
@@ -460,6 +463,13 @@ export type Database = {
             columns: ["alert_id"]
             isOneToOne: false
             referencedRelation: "alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "integration_outbox_score_id_fkey"
+            columns: ["score_id"]
+            isOneToOne: false
+            referencedRelation: "scores"
             referencedColumns: ["id"]
           },
         ]
@@ -1009,6 +1019,7 @@ export type Database = {
           last_error: string | null
           next_attempt_at: string
           payload: NonNullable<Json>
+          score_id: string | null
           sent_at: string | null
           status: string
         }[]

@@ -6,6 +6,7 @@ import { persistResults } from '../pipeline/persist';
 import { resolveUnseenFindings } from '../pipeline/resolve';
 import { raiseScoreAlert } from '../pipeline/alerts';
 import { scoreScan } from '../pipeline/score';
+import { enqueueSiemEvents } from '../pipeline/siem-events';
 import type { Db } from '../supabase';
 
 const MAX_ATTEMPTS = 3;
@@ -14,7 +15,12 @@ const FINISHED = new Set(['completed', 'failed', 'cancelled']);
 export async function runScan(
   db: Db,
   scanId: string,
-  opts: { attempt: number; signal: AbortSignal },
+  opts: {
+    attempt: number;
+    signal: AbortSignal;
+    /** null si el SIEM no está configurado: no se encolan eventos. */
+    siem?: { webUrl: string | null } | null;
+  },
 ): Promise<void> {
   const { data: scan, error } = await db
     .from('scans')
@@ -50,7 +56,7 @@ export async function runScan(
   try {
     const { data: company, error: companyError } = await db
       .from('companies')
-      .select('primary_domain')
+      .select('name, primary_domain')
       .eq('id', scan.company_id)
       .single();
     if (companyError) throw companyError;
@@ -78,7 +84,25 @@ export async function runScan(
     const score = await scoreScan(db, scan);
     if (score) {
       // Un reintento borra el puntaje anterior y con él sus alertas (on delete cascade).
-      await raiseScoreAlert(db, { id: score.scoreId, companyId: scan.company_id, grade: score.grade });
+      const outcome = await raiseScoreAlert(db, { id: score.scoreId, companyId: scan.company_id, grade: score.grade });
+      if (opts.siem) {
+        // Igual que el resumen: un fallo al encolar para el SIEM no tumba el escaneo.
+        await enqueueSiemEvents(db, {
+          ctx: {
+            occurredAt: new Date().toISOString(),
+            company: { name: company.name, primaryDomain: company.primary_domain },
+            scanId,
+            scoreId: score.scoreId,
+            webUrl: opts.siem.webUrl,
+          },
+          weightVersionId: scan.weight_version_id,
+          score,
+          previousGrade: outcome.previousGrade,
+          alert: outcome.alert,
+        }).catch((err: unknown) => {
+          console.warn(`[run-scan] ${scanId} no se pudieron encolar los eventos del SIEM`, err instanceof Error ? err.message : err);
+        });
+      }
       // El resumen con IA se genera aparte (cola report_requests): no retrasa ni tumba el escaneo.
       const { error: reportError } = await db.rpc('request_report', { p_score_id: score.scoreId });
       if (reportError) console.warn(`[run-scan] ${scanId} no se pudo pedir el resumen`, reportError.message);

@@ -5,13 +5,16 @@ import { runScan } from './jobs/run-scan';
 import { createSmtpMailer } from './mailer';
 import { deliverEmailAlerts } from './pipeline/notify';
 import { generateReport } from './pipeline/report';
+import { deliverSiemEvents } from './pipeline/siem';
 import { keepInvisible } from './pipeline/visibility';
+import { createSplunkSender } from './splunk';
 import { db } from './supabase';
 
 const IDLE_DELAY_MS = 5_000;
 /** Un resumen tarda segundos; si el worker muere, el pedido reaparece pronto. */
 const REPORT_VISIBILITY_TIMEOUT = 180;
 const shutdown = new AbortController();
+const splunk = createSplunkSender();
 
 for (const sig of ['SIGINT', 'SIGTERM'] as const) {
   process.on(sig, () => {
@@ -35,7 +38,11 @@ async function pollScanRequests(): Promise<boolean> {
     // Si el worker muere a mitad del escaneo, el latido se detiene y el mensaje reaparece al vencer el timeout.
     const heartbeat = keepInvisible(db, QUEUES.scanRequests, msg.msg_id, config.QUEUE_VISIBILITY_TIMEOUT);
     try {
-      await runScan(db, scan_id, { attempt: msg.read_ct, signal: shutdown.signal });
+      await runScan(db, scan_id, {
+        attempt: msg.read_ct,
+        signal: shutdown.signal,
+        siem: splunk ? { webUrl: config.WARDEN_WEB_URL ?? null } : null,
+      });
     } finally {
       heartbeat.stop();
     }
@@ -71,15 +78,24 @@ async function pollEmailAlerts(): Promise<boolean> {
   return processed > 0;
 }
 
+async function pollSiemEvents(): Promise<boolean> {
+  if (!splunk) return false;
+  const processed = await deliverSiemEvents(db, splunk, { index: config.SPLUNK_INDEX ?? null });
+  return processed > 0;
+}
+
 console.log('[worker] escuchando las colas', QUEUES.scanRequests, 'y', QUEUES.reportRequests);
 console.log(mailer
   ? `[worker] alertas por correo vía ${config.SMTP_HOST}:${config.SMTP_PORT}`
   : '[worker] SMTP_HOST sin configurar: las alertas por correo quedan pendientes');
+console.log(splunk
+  ? `[worker] eventos del SIEM a Splunk HEC (${new URL(config.SPLUNK_HEC_URL ?? '').host})`
+  : '[worker] SPLUNK_HEC_URL sin configurar: no se envían eventos al SIEM');
 
 while (!shutdown.signal.aborted) {
   try {
-    // Los escaneos tienen prioridad; los resúmenes y los correos se atienden cuando no hay escaneos en cola.
-    const didWork = (await pollScanRequests()) || (await pollReportRequests()) || (await pollEmailAlerts());
+    // Los escaneos tienen prioridad; los resúmenes, correos y eventos del SIEM se atienden cuando no hay escaneos en cola.
+    const didWork = (await pollScanRequests()) || (await pollReportRequests()) || (await pollEmailAlerts()) || (await pollSiemEvents());
     if (!didWork) await sleep(IDLE_DELAY_MS, undefined, { signal: shutdown.signal });
   } catch (err) {
     if (shutdown.signal.aborted) break;
