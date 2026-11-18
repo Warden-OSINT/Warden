@@ -57,6 +57,11 @@ export type OutboxDestination = (typeof OUTBOX_DESTINATIONS)[number];
 export const OUTBOX_STATUSES = ['pending', 'sent', 'failed'] as const;
 export type OutboxStatus = (typeof OUTBOX_STATUSES)[number];
 
+// Eventos que se envían al SIEM (integration_outbox.event_type con destination = 'siem').
+// En Splunk llegan con sourcetype `warden:<tipo>`.
+export const SIEM_EVENT_TYPES = ['score', 'alert'] as const;
+export type SiemEventType = (typeof SIEM_EVENT_TYPES)[number];
+
 /** true si `a` es peor nota que `b` (A es la mejor). */
 export function isWorseGrade(a: Grade, b: Grade): boolean {
   return GRADES.indexOf(a) > GRADES.indexOf(b);

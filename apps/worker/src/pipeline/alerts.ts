@@ -36,10 +36,22 @@ export function emailRecipients(value: unknown): string[] {
  * (visible en la web) y, si hay destinatarios, un envío por correo pendiente en
  * integration_outbox que el worker manda aparte (notify.ts): un SMTP caído no tumba el escaneo.
  */
+export interface RaisedAlert extends AlertDecision {
+  alertId: string;
+  /** Umbral vigente solo si la alerta es por cruzarlo. */
+  thresholdGrade: Grade | null;
+}
+
+/** Resultado de revisar el puntaje: la nota anterior (también la usa el evento del SIEM) y la alerta, si hubo. */
+export interface ScoreAlertOutcome {
+  previousGrade: Grade | null;
+  alert: RaisedAlert | null;
+}
+
 export async function raiseScoreAlert(
   db: Db,
   score: { id: string; companyId: string; grade: Grade },
-): Promise<AlertDecision | null> {
+): Promise<ScoreAlertOutcome> {
   const [previousRes, settingsRes] = await Promise.all([
     db
       .from('scores')
@@ -55,8 +67,10 @@ export async function raiseScoreAlert(
   if (settingsRes.error) throw settingsRes.error;
 
   const threshold = asGrade(settingsRes.data?.threshold_grade);
-  const decision = decideAlert(asGrade(previousRes.data?.grade), score.grade, threshold);
-  if (!decision) return null;
+  const previousGrade = asGrade(previousRes.data?.grade);
+  const decision = decideAlert(previousGrade, score.grade, threshold);
+  if (!decision) return { previousGrade, alert: null };
+  const thresholdGrade = decision.type === 'threshold_crossed' ? threshold : null;
 
   const { data: alert, error } = await db.from('alerts').insert({
     score_id: score.id,
@@ -75,9 +89,9 @@ export async function raiseScoreAlert(
       event_type: decision.type,
       alert_id: alert.id,
       // Destinatarios y umbral de este momento: cambiarlos después no reescribe avisos ya registrados.
-      payload: { recipients, thresholdGrade: decision.type === 'threshold_crossed' ? threshold : null },
+      payload: { recipients, thresholdGrade },
     });
     if (outboxError) throw outboxError;
   }
-  return decision;
+  return { previousGrade, alert: { ...decision, alertId: alert.id, thresholdGrade } };
 }

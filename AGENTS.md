@@ -63,7 +63,8 @@ Estos valores deben coincidir en tres lugares: `packages/shared/src/index.ts`, l
 | Página Reportes (`/reports`) | ✅ Un reporte por escaneo calificado (`lib/reports.ts`): KRI, notas por dominio, cobertura, fuentes, hallazgos abiertos y alertas; imprimible/PDF desde el navegador. Resumen ejecutivo con IA (estado, riesgos, recomendaciones y botón Regenerar) |
 | Configuración (`/settings`) | ✅ Usuarios, **Pesos del KRI** (crear y activar versiones; `lib/scoring-settings.ts`), **Programación de escaneos** (frecuencia, próxima ejecución en hora CST y pausa; `lib/schedule-settings.ts`, `saveSchedule`) y **Alertas** (umbral, destinatarios e historial). Editar requiere admin |
 | Alertas | ✅ El worker registra `grade_drop` / `threshold_crossed` tras calificar (`pipeline/alerts.ts`, canal `in_app`) y, si hay destinatarios, un envío en `integration_outbox` (`destination = 'email'`) que manda por SMTP con reintentos (`pipeline/notify.ts`, `mailer.ts`). Sin `SMTP_HOST` quedan pendientes. Webhook pendiente |
-| Outbox SIEM/SOAR, archivado | 🔴 Solo tablas (`integration_outbox` ya se usa para el correo) |
+| SIEM (Splunk) | 🟡 Fase 1: tras calificar, el worker encola en `integration_outbox` (`destination = 'siem'`) un evento `score` y, si hubo, uno `alert`, y los manda a Splunk HEC (`pipeline/siem-events.ts`, `pipeline/siem.ts`). Sin `SPLUNK_HEC_URL` no se encola nada. Eventos de hallazgos pendientes ([docs/splunk-plan.md](docs/splunk-plan.md)) |
+| SOAR, archivado | 🔴 Solo tablas |
 
 **El modelo de scoring está definido en [docs/scoring-model.md](docs/scoring-model.md); no lo cambies sin acordarlo con el equipo.** Los puntos por severidad y factores por confianza de la versión 1 siguen como SUPUESTO. Con datos reales, KRI y notas son `null` hasta que el worker guarde el primer puntaje en `scores`. Qué está hecho y qué falta del KRI (IA, envío de alertas, HIBP…): [docs/kri-plan.md](docs/kri-plan.md).
 
@@ -119,7 +120,9 @@ Warden-/
 │           ├── jobs/run-scan.ts         Orquesta un escaneo (estados, reintentos)
 │           └── pipeline/
 │               ├── collect.ts  Ejecuta colectores tras la compuerta no-contact; registra scan_sources
-│               └── persist.ts  Upsert de activos (pending) y hallazgos (por fingerprint)
+│               ├── persist.ts  Upsert de activos (pending) y hallazgos (por fingerprint)
+│               ├── siem-events.ts  Arma y encola eventos para Splunk (score, alert)
+│               └── siem.ts     Envío a Splunk HEC desde integration_outbox
 ├── packages/                   Lógica compartida, consumida como TS fuente (sin build)
 │   ├── shared/                 @warden/shared — enums y tipos (dominios, severidades, colas…)
 │   ├── db/                     @warden/db — tipos generados de Supabase (NO editar a mano)
@@ -219,6 +222,7 @@ Reglas:
    - **resolve** (`pipeline/resolve.ts`): cierra hallazgos que su fuente dejó de observar en escaneos exitosos consecutivos.
    - **score** (`pipeline/score.ts`): `computeScore` con los hallazgos `open` y la versión de pesos del escaneo; solo cuentan los dominios con alguna fuente `ok`. Guarda `scores` (con `excluded_domains`) y `score_domains`.
    - **alerts** (`pipeline/alerts.ts`): compara la nota con el puntaje anterior y el umbral de `alert_settings`; registra como mucho una alerta `in_app` por escaneo y, con destinatarios en `alert_settings`, su envío por correo en `integration_outbox`. El worker atiende esos envíos cuando no hay escaneos ni resúmenes (`claim_outbox` los aparta 2 min; hasta 5 intentos con espera de 1, 5, 15 y 60 min, luego `failed`). El correo solo lleva notas, KRI y enlace al reporte, nunca evidencia.
+   - **siem** (`pipeline/siem-events.ts`, `pipeline/siem.ts`): con `SPLUNK_HEC_URL`, encola un evento `score` (y `alert` si hubo) en `integration_outbox` (`destination = 'siem'`, ligado a `score_id`) y el worker lo manda a Splunk HEC cuando no hay otro trabajo, con los mismos reintentos que el correo (400/413 de HEC → `failed` directo). Sourcetype `warden:<tipo>`, `event_id` = id del outbox para deduplicar. Solo notas, conteos y enlaces, nunca evidencia.
    - **report (IA):** `rpc('request_report')` encola `{ score_id }` en `report_requests`. El worker atiende esa cola cuando no hay escaneos (`pipeline/report.ts`) y guarda el resultado en `reports` (`pending` → `draft` o `failed` con `error_message`). Un fallo de la IA nunca tumba el escaneo; la web permite regenerar.
    - Marca `completed` o `failed`.
    - **Progreso y cancelación:** durante la recolección el worker guarda `scans.current_source` y `sources_total` (la web muestra "Consultando X · n de N"). Un miembro puede detenerlo con `rpc('cancel_scan')` → `status = 'cancelled'`; el worker lo revisa cada 3 s (`pipeline/cancellation.ts`), aborta las consultas en vuelo y no persiste ni califica resultados parciales. Uno cancelado en cola se descarta al leerlo.
@@ -367,6 +371,7 @@ update public.profiles set role = 'admin', is_active = true where id = '<tu-user
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD` | worker | SMTP de la empresa para las alertas; en local, Mailpit (`127.0.0.1:54325`) |
 | `ALERT_EMAIL_FROM`, `WARDEN_WEB_URL` | worker | Remitente de las alertas y URL de la web para el enlace al reporte |
 | `SPIDERFOOT_URL` | worker | API de SpiderFoot |
+| `SPLUNK_HEC_URL`, `SPLUNK_HEC_TOKEN`, `SPLUNK_INDEX` | worker | Splunk HTTP Event Collector (eventos de calificación y alertas); token de la empresa en producción |
 | `ABUSECH_AUTH_KEY` | worker | Auth-Key gratuita de abuse.ch (URLhaus, ThreatFox); cuenta de la empresa |
 | `CERTSPOTTER_API_KEY` | worker | Opcional: llave gratuita de SSLMate para el respaldo Cert Spotter de crt.sh; cuenta de la empresa |
 | `HIBP_API_KEY` | worker | API de brechas; requiere suscripción y dominio previamente verificado en HIBP |

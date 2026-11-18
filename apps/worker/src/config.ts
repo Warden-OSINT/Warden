@@ -25,9 +25,17 @@ const envSchema = z.object({
   ALERT_EMAIL_FROM: optional(z.string().trim().min(3)),
   // URL pública de la web, para el enlace al reporte en el correo.
   WARDEN_WEB_URL: optional(z.url()),
+  // Splunk HTTP Event Collector. Sin SPLUNK_HEC_URL no se encolan eventos para el SIEM.
+  SPLUNK_HEC_URL: optional(z.url({ protocol: /^https?$/ })),
+  SPLUNK_HEC_TOKEN: optional(z.string().trim().min(1)),
+  // Opcional: sin él, Splunk usa el índice por defecto del token.
+  SPLUNK_INDEX: optional(z.string().trim().min(1)),
 }).refine((env) => !env.SMTP_HOST || env.ALERT_EMAIL_FROM, {
   message: 'Con SMTP_HOST definido falta ALERT_EMAIL_FROM (remitente de las alertas)',
   path: ['ALERT_EMAIL_FROM'],
+}).refine((env) => !env.SPLUNK_HEC_URL || env.SPLUNK_HEC_TOKEN, {
+  message: 'Con SPLUNK_HEC_URL definido falta SPLUNK_HEC_TOKEN',
+  path: ['SPLUNK_HEC_TOKEN'],
 });
 
 export const config = envSchema.parse(process.env);
