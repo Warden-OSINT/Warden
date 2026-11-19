@@ -6,6 +6,7 @@ import { createSmtpMailer } from './mailer';
 import { deliverEmailAlerts } from './pipeline/notify';
 import { generateReport } from './pipeline/report';
 import { deliverSiemEvents } from './pipeline/siem';
+import { backfillLatestScores } from './pipeline/siem-backfill';
 import { keepInvisible } from './pipeline/visibility';
 import { createSplunkSender } from './splunk';
 import { db } from './supabase';
@@ -91,6 +92,12 @@ console.log(mailer
 console.log(splunk
   ? `[worker] eventos del SIEM a Splunk HEC (${new URL(config.SPLUNK_HEC_URL ?? '').host})`
   : '[worker] SPLUNK_HEC_URL sin configurar: no se envían eventos al SIEM');
+if (splunk) {
+  // Carga inicial: si el último puntaje nunca llegó a Splunk, se encola. Un fallo no detiene el worker.
+  await backfillLatestScores(db, { webUrl: config.WARDEN_WEB_URL ?? null })
+    .then((n) => { if (n > 0) console.log(`[worker] carga inicial del SIEM: ${n} puntaje(s) encolado(s)`); })
+    .catch((err: unknown) => console.warn('[worker] carga inicial del SIEM falló', err instanceof Error ? err.message : err));
+}
 
 while (!shutdown.signal.aborted) {
   try {

@@ -22,7 +22,7 @@ Descartado:
 | Fase | Contenido | Estado |
 |---|---|---|
 | 1 — Alertas y calificación | `warden:score` por escaneo calificado y `warden:alert` por alerta | ✅ Implementada (rama `feat/splunk`) |
-| 2 — Visibilidad y carga inicial | Estado de envíos en Configuración y reenvío del último puntaje | ⬜ (opcional) |
+| 2 — Visibilidad y carga inicial | Configuración → Splunk (estado y reintento de fallidos) y carga inicial del último puntaje | ✅ Implementada (rama `feat/splunk-fase2`) |
 | 3 — Hallazgos | `warden:finding` (abierto, resuelto, reabierto, triage) | ⬜ si hay tiempo |
 
 ## Eventos (fase 1)
@@ -159,11 +159,17 @@ index=warden sourcetype=warden:score | dedup event_id | timechart span=1d latest
 index=warden sourcetype=warden:alert | dedup event_id | table _time alert_type previous_grade new_grade report_url
 ```
 
-## Fase 2 (opcional): visibilidad y carga inicial
+## Fase 2: visibilidad y carga inicial ✅
 
-- En Configuración → Alertas, un bloque "Splunk" con el último envío y los `failed` (`last_error`),
-  leyendo `integration_outbox` con la sesión (RLS ya permite lectura a miembros; verificar).
-- Acción de admin "Reenviar último puntaje" para que Splunk no arranque vacío.
+- **Configuración → Splunk (SIEM)** (`/settings/splunk`, solo admin; RLS de `integration_outbox`
+  solo da lectura a admin): conteos de enviados, pendientes y fallidos, último envío y los 20
+  eventos más recientes con su error (`lib/siem.ts`, `components/settings/siem-status.tsx`).
+- **Reintentar fallidos**: RPC `retry_failed_siem_events()` (`security definer`, solo admin)
+  devuelve los `failed` a `pending` con `attempts = 0`; sirve tras corregir el token o la URL.
+- **Carga inicial** (`pipeline/siem-backfill.ts`): al arrancar con Splunk configurado, el worker
+  encola el último puntaje de cada empresa si nunca se envió, para que Splunk no arranque vacío.
+  En lugar del botón "Reenviar último puntaje" que se había previsto: no requiere acción y la web
+  sigue sin escribir en el outbox. Los hallazgos abiertos del evento son los de ese momento.
 
 ## Fase 3 (si hay tiempo): eventos de hallazgos
 

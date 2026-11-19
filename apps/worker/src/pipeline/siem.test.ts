@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createHecSender, HecError, hecEndpoint, isRetryableStatus, toHecEvent, type HecEvent } from './siem';
 import { buildAlertEvent, buildScoreEvent, countBySeverity, type SiemContext } from './siem-events';
+import { scoreFromRows } from './siem-backfill';
 
 const ctx: SiemContext = {
   occurredAt: '2026-11-18T18:00:00.000Z',
@@ -129,5 +130,31 @@ describe('HEC', () => {
     const down = createHecSender({ url: 'http://x:8088', token: 't', fetch: async () => { throw new TypeError('fetch failed'); } });
     await expect(down.send(event)).rejects.toBeInstanceOf(HecError);
     await expect(down.send(event)).rejects.toMatchObject({ retryable: true });
+  });
+});
+
+describe('scoreFromRows (carga inicial)', () => {
+  it('reconstruye el puntaje guardado en el orden de los dominios', () => {
+    const result = scoreFromRows(
+      { global_score: '72.25', grade: 'C', excluded_domains: ['secrets', 'desconocido'] },
+      [
+        { domain_score: '90', grade: 'A', findings_count: 0, risk_domains: { key: 'certs' } },
+        { domain_score: '60.5', grade: 'D', findings_count: 3, risk_domains: { key: 'exposure' } },
+        { domain_score: '10', grade: 'F', findings_count: 1, risk_domains: null },
+      ],
+    );
+    expect(result).toEqual({
+      globalScore: 72.25,
+      grade: 'C',
+      domains: [
+        { riskDomain: 'exposure', score: 60.5, grade: 'D', findingsCount: 3 },
+        { riskDomain: 'certs', score: 90, grade: 'A', findingsCount: 0 },
+      ],
+      excludedDomains: ['secrets'],
+    });
+  });
+
+  it('descarta un puntaje con nota inválida', () => {
+    expect(scoreFromRows({ global_score: 1, grade: 'Z', excluded_domains: null }, [])).toBeNull();
   });
 });

@@ -187,3 +187,12 @@ export async function saveSchedule(_prev: ActionResult, formData: FormData): Pro
   revalidatePath('/');
   return { ok: isActive ? 'Programación guardada' : 'Programación guardada y pausada' };
 }
+
+/** Vuelve a poner en cola los eventos del SIEM fallidos (p. ej. tras corregir el token de Splunk). */
+export async function retrySiemEvents(_prev: ActionResult): Promise<ActionResult> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('retry_failed_siem_events');
+  if (error) return { error: permissionMessage(error) };
+  revalidatePath('/settings/splunk');
+  return { ok: data === 0 ? 'No había envíos fallidos' : `${data} evento(s) en cola de nuevo; el worker los envía en segundos` };
+}

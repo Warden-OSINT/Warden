@@ -116,7 +116,10 @@ export async function deliverSiemEvents(db: Db, sender: SiemSender, opts: { inde
       // Ya se envió: si no se marca, se reenviaría al vencer el lease (Splunk deduplica por event_id).
       if (sentError) console.error(`[siem] ${row.id} enviado pero no se pudo marcar`, sentError.message);
     } catch (err) {
-      const message = (err instanceof Error ? err.message : String(err)).slice(0, MAX_ERROR_LENGTH);
+      const raw = err instanceof z.ZodError
+        ? `evento inválido: ${z.prettifyError(err)}`
+        : err instanceof Error ? err.message : String(err);
+      const message = raw.slice(0, MAX_ERROR_LENGTH);
       // Un payload inválido o un rechazo definitivo de HEC no mejora al reintentar.
       const retryable = err instanceof HecError ? err.retryable : !(err instanceof z.ZodError);
       const next = retryable ? afterFailure(attempts, new Date()) : { status: 'failed' as const };
