@@ -12,7 +12,15 @@
    baja de 0. La constante 60 (`SATURATION`) hace que un `high` de confianza alta deje el
    dominio en ~72.
 3. **Hallazgos que cuentan:** solo `open`. `accepted` (ya pasó triage con motivo),
-   `false_positive` y `resolved` no restan.
+   `false_positive` y `resolved` no restan. Además, el activo del hallazgo debe seguir en
+   alcance: cuentan los hallazgos sin activo, los de activos `confirmed` y los de activos
+   `pending` descubiertos por una fuente (`discovery_source = 'auto'`: subdominios e IPs que
+   salen de activos confirmados y aún nadie revisa). No cuentan los de activos `discarded` ni
+   los de activos manuales en `pending`: un activo manual entra confirmado, así que solo llega
+   ahí si un analista le quitó la confirmación. Volver a confirmarlo recupera sus hallazgos sin
+   tocar el triage. El filtro se aplica al cargar los hallazgos (`onlyInScopeFindings` de
+   `@warden/shared`), no en `computeScore`; el dashboard, los reportes, el resumen con IA y el
+   evento de Splunk usan el mismo criterio, y /findings oculta esos hallazgos por defecto.
 4. **Letras:** A ≥ 90, B ≥ 80, C ≥ 70, D ≥ 60, E ≥ 50, F < 50.
    Techo: un hallazgo `critical` abierto limita el dominio a 69 (D).
 5. **Global:** promedio ponderado de los dominios con datos, con la letra según los mismos umbrales.

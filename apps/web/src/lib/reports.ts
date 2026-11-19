@@ -4,6 +4,7 @@
 import {
   ALERT_TYPES,
   CONFIDENCES,
+  FINDING_ASSET_SCOPE_COLUMNS,
   REPORT_STATUSES,
   RISK_DOMAIN_KEYS,
   SCAN_SOURCE_STATUSES,
@@ -15,6 +16,7 @@ import {
   type RiskDomainKey,
   type ScanSourceStatus,
   type Severity,
+  onlyInScopeFindings,
 } from '@warden/shared';
 import type { Json } from '@warden/db';
 import { asGrade, loadActiveCompany, oneOf } from './dashboard-data';
@@ -184,12 +186,15 @@ export async function loadReport(scoreId: string): Promise<ReportDetailState> {
       .eq('weight_version_id', score.weight_version_id),
     supabase.from('scoring_weights').select('version').eq('id', score.weight_version_id).maybeSingle(),
     supabase.from('scan_sources').select('source_key, status, sources!inner(name)').eq('scan_id', score.scan_id),
-    supabase
-      .from('findings')
-      .select('id, title, severity, confidence, observed_at, risk_domains!inner(key), assets(value), finding_sources(source_key)')
-      .eq('company_id', company.id)
-      .eq('status', 'open')
-      .limit(FINDINGS_LIMIT),
+    onlyInScopeFindings(
+      supabase
+        .from('findings')
+        .select(
+          `id, title, severity, confidence, observed_at, risk_domains!inner(key), assets(value, ${FINDING_ASSET_SCOPE_COLUMNS}), finding_sources(source_key)`,
+        )
+        .eq('company_id', company.id)
+        .eq('status', 'open'),
+    ).limit(FINDINGS_LIMIT),
   ]);
   for (const res of [previousRes, weightsRes, versionRes, sourcesRes, findingsRes]) if (res.error) throw res.error;
 

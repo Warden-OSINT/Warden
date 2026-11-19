@@ -83,3 +83,42 @@ export interface ScanRequestMessage {
 export interface ReportRequestMessage {
   score_id: string;
 }
+
+// Alcance de los hallazgos. Un hallazgo cuenta (KRI, dashboard, reportes, SIEM, resumen IA)
+// si no tiene activo o si su activo sigue en alcance: confirmado, o pendiente descubierto por
+// una fuente (subdominios e IPs que salen de activos confirmados y aún nadie revisa). Quedan
+// fuera los activos descartados y los manuales sin confirmar: un activo manual entra
+// confirmado, así que solo llega a 'pending' si un analista le quitó la confirmación.
+// Volver a confirmarlo recupera sus hallazgos sin tocar el triage.
+
+export interface FindingAssetScope {
+  attribution_status: string;
+  discovery_source: string;
+}
+
+/** true si el activo del hallazgo (null = sin activo) sigue en alcance. */
+export function isAssetInScope(asset: FindingAssetScope | null): boolean {
+  if (!asset) return true;
+  return asset.attribution_status === 'confirmed'
+    || (asset.attribution_status === 'pending' && asset.discovery_source === 'auto');
+}
+
+/** Columnas del activo que la consulta debe embeber como `assets(...)` para filtrar el alcance. */
+export const FINDING_ASSET_SCOPE_COLUMNS = 'attribution_status, discovery_source';
+
+/** Mismo criterio que isAssetInScope, como filtros de PostgREST. */
+export const IN_SCOPE_ASSET_FILTER = 'attribution_status.eq.confirmed,and(attribution_status.eq.pending,discovery_source.eq.auto)';
+export const IN_SCOPE_FINDING_FILTER = 'asset_id.is.null,assets.not.is.null';
+
+interface OrFilterable<Q> {
+  or(filters: string, options?: { referencedTable?: string }): Q;
+}
+
+/**
+ * Restringe una consulta de `findings` a los hallazgos en alcance. La consulta debe embeber
+ * `assets(…)` sin `!inner`: el primer filtro deja el embed en null si el activo está fuera
+ * de alcance y el segundo descarta esas filas (las que no tienen activo se conservan).
+ */
+export function onlyInScopeFindings<Q extends OrFilterable<Q>>(query: Q): Q {
+  return query.or(IN_SCOPE_ASSET_FILTER, { referencedTable: 'assets' }).or(IN_SCOPE_FINDING_FILTER);
+}
