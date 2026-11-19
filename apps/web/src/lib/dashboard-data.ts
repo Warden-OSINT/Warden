@@ -3,6 +3,7 @@
 
 import {
   CONFIDENCES,
+  FINDING_ASSET_SCOPE_COLUMNS,
   GRADES,
   RISK_DOMAIN_KEYS,
   SCAN_SOURCE_STATUSES,
@@ -13,6 +14,7 @@ import {
   type Grade,
   type RiskDomainKey,
   type Severity,
+  onlyInScopeFindings,
 } from '@warden/shared';
 import type { Json } from '@warden/db';
 import {
@@ -178,11 +180,13 @@ async function loadAssets(supabase: Supabase, companyId: string): Promise<AssetR
 }
 
 async function loadOpenFindingCounts(supabase: Supabase, companyId: string) {
-  const { data, error } = await supabase
-    .from('findings')
-    .select('severity, risk_domains!inner(key)')
-    .eq('company_id', companyId)
-    .eq('status', 'open');
+  const { data, error } = await onlyInScopeFindings(
+    supabase
+      .from('findings')
+      .select(`severity, risk_domains!inner(key), assets(${FINDING_ASSET_SCOPE_COLUMNS})`)
+      .eq('company_id', companyId)
+      .eq('status', 'open'),
+  );
   if (error) throw error;
 
   const byDomain = new Map<RiskDomainKey, number>();
@@ -197,11 +201,13 @@ async function loadOpenFindingCounts(supabase: Supabase, companyId: string) {
 
 async function loadRecentFindings(supabase: Supabase, companyId: string): Promise<FindingRow[]> {
   const [{ data, error }, { data: sources }] = await Promise.all([
-    supabase
-      .from('findings')
-      .select('id, title, severity, confidence, observed_at, risk_domains!inner(key), finding_sources(source_key)')
-      .eq('company_id', companyId)
-      .eq('status', 'open')
+    onlyInScopeFindings(
+      supabase
+        .from('findings')
+        .select(`id, title, severity, confidence, observed_at, risk_domains!inner(key), finding_sources(source_key), assets(${FINDING_ASSET_SCOPE_COLUMNS})`)
+        .eq('company_id', companyId)
+        .eq('status', 'open'),
+    )
       .order('observed_at', { ascending: false })
       .limit(RECENT_FINDINGS_WINDOW),
     supabase.from('sources').select('source_key, name'),
@@ -355,13 +361,14 @@ async function loadSourceRuns(supabase: Supabase, companyId: string): Promise<So
 
 /** Hallazgos abiertos de exposición agrupados por IP, más el estado de la fuente. */
 async function loadExposure(supabase: Supabase, companyId: string, runs: SourceRuns): Promise<ExposureOverview> {
-  const findingsRes = await supabase
-    .from('findings')
-    .select('id, severity, confidence, observed_at, evidence, risk_domains!inner(key)')
-    .eq('company_id', companyId)
-    .eq('status', 'open')
-    .eq('risk_domains.key', 'exposure')
-    .limit(2000);
+  const findingsRes = await onlyInScopeFindings(
+    supabase
+      .from('findings')
+      .select(`id, severity, confidence, observed_at, evidence, risk_domains!inner(key), assets(${FINDING_ASSET_SCOPE_COLUMNS})`)
+      .eq('company_id', companyId)
+      .eq('status', 'open')
+      .eq('risk_domains.key', 'exposure'),
+  ).limit(2000);
   if (findingsRes.error) throw findingsRes.error;
 
   const source = runs.statuses.find((s) => s.sourceKey === EXPOSURE_SOURCE_KEY) ?? null;
@@ -427,13 +434,14 @@ async function loadExposure(supabase: Supabase, companyId: string, runs: SourceR
 
 /** Estado de SPF/DMARC/MX por dominio (avisos de email_dns) y hallazgos abiertos de correo. */
 async function loadEmail(supabase: Supabase, companyId: string, runs: SourceRuns): Promise<EmailOverview> {
-  const { data, error } = await supabase
-    .from('findings')
-    .select('id, title, severity, risk_domains!inner(key)')
-    .eq('company_id', companyId)
-    .eq('status', 'open')
-    .eq('risk_domains.key', 'email')
-    .limit(200);
+  const { data, error } = await onlyInScopeFindings(
+    supabase
+      .from('findings')
+      .select(`id, title, severity, risk_domains!inner(key), assets(${FINDING_ASSET_SCOPE_COLUMNS})`)
+      .eq('company_id', companyId)
+      .eq('status', 'open')
+      .eq('risk_domains.key', 'email'),
+  ).limit(200);
   if (error) throw error;
 
   return {
@@ -500,13 +508,14 @@ export function parseEmailDomains(notices: Json): EmailDomainStatus[] {
 
 /** Activos revisados en abuse.ch (avisos de abusech) y hallazgos abiertos de reputación. */
 async function loadReputation(supabase: Supabase, companyId: string, runs: SourceRuns): Promise<ReputationOverview> {
-  const { data, error } = await supabase
-    .from('findings')
-    .select('id, title, severity, evidence, risk_domains!inner(key)')
-    .eq('company_id', companyId)
-    .eq('status', 'open')
-    .eq('risk_domains.key', 'reputation')
-    .limit(200);
+  const { data, error } = await onlyInScopeFindings(
+    supabase
+      .from('findings')
+      .select(`id, title, severity, evidence, risk_domains!inner(key), assets(${FINDING_ASSET_SCOPE_COLUMNS})`)
+      .eq('company_id', companyId)
+      .eq('status', 'open')
+      .eq('risk_domains.key', 'reputation'),
+  ).limit(200);
   if (error) throw error;
 
   return {

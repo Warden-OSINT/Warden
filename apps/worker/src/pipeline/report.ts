@@ -1,5 +1,5 @@
 import { generateExecutiveSummary, type ExecutiveSummaryContext } from '@warden/ai';
-import { SEVERITIES, type Severity } from '@warden/shared';
+import { FINDING_ASSET_SCOPE_COLUMNS, SEVERITIES, onlyInScopeFindings, type Severity } from '@warden/shared';
 import { config } from '../config';
 import type { Db } from '../supabase';
 
@@ -97,12 +97,14 @@ async function loadReportSource(db: Db, scoreId: string): Promise<ReportSource> 
   const [domainsRes, ...findingsRes] = await Promise.all([
     db.from('risk_domains').select('key, name'),
     ...severities.map((severity) =>
-      db
-        .from('findings')
-        .select('title, severity, risk_domains!inner(name)')
-        .eq('company_id', score.company_id)
-        .eq('status', 'open')
-        .eq('severity', severity)
+      onlyInScopeFindings(
+        db
+          .from('findings')
+          .select(`title, severity, risk_domains!inner(name), assets(${FINDING_ASSET_SCOPE_COLUMNS})`)
+          .eq('company_id', score.company_id)
+          .eq('status', 'open')
+          .eq('severity', severity),
+      )
         .order('title')
         .limit(TOP_FINDINGS)),
   ]);

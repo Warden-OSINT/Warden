@@ -2,6 +2,7 @@
 
 import {
   CONFIDENCES,
+  FINDING_ASSET_SCOPE_COLUMNS,
   FINDING_STATUSES,
   RISK_DOMAIN_KEYS,
   SEVERITIES,
@@ -9,6 +10,7 @@ import {
   type FindingStatus,
   type RiskDomainKey,
   type Severity,
+  isAssetInScope,
 } from '@warden/shared';
 import type { Json } from '@warden/db';
 import { loadActiveCompany, oneOf } from './dashboard-data';
@@ -29,6 +31,11 @@ export interface FindingDetail {
   autoResolved: boolean;
   observedAt: string;
   asset: string | null;
+  /**
+   * Estado del activo cuando está fuera de alcance (descartado o manual sin confirmar):
+   * el hallazgo no cuenta en el KRI ni en el dashboard. null si cuenta.
+   */
+  assetOutOfScope: 'discarded' | 'unconfirmed' | null;
   sources: string[];
   evidence: Json;
 }
@@ -53,7 +60,7 @@ export async function loadFindings(): Promise<FindingsState> {
     supabase
       .from('findings')
       .select(
-        'id, title, severity, confidence, status, status_reason, status_by, observed_at, evidence, risk_domains!inner(key), assets(value), finding_sources(source_key)',
+        `id, title, severity, confidence, status, status_reason, status_by, observed_at, evidence, risk_domains!inner(key), assets(value, ${FINDING_ASSET_SCOPE_COLUMNS}), finding_sources(source_key)`,
       )
       .eq('company_id', company.id)
       .order('observed_at', { ascending: false })
@@ -79,6 +86,9 @@ export async function loadFindings(): Promise<FindingsState> {
         autoResolved: status === 'resolved' && f.status_by === null,
         observedAt: f.observed_at,
         asset: f.assets?.value ?? null,
+        assetOutOfScope: isAssetInScope(f.assets)
+          ? null
+          : f.assets?.attribution_status === 'discarded' ? 'discarded' : 'unconfirmed',
         sources: f.finding_sources.map((s) => sourceName.get(s.source_key) ?? s.source_key),
         evidence: f.evidence,
       };

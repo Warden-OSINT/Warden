@@ -33,15 +33,22 @@ const SEVERITY_LABELS: Record<Severity, string> = {
 
 const CONFIDENCE_LABELS = { high: 'alta', medium: 'media', low: 'baja' } as const;
 
+const OUT_OF_SCOPE_LABELS = { discarded: 'Activo descartado', unconfirmed: 'Activo sin confirmar' } as const;
+
 export function FindingsTable({ findings }: { findings: FindingDetail[] }) {
   const [status, setStatus] = useState<FindingStatus | ''>('open');
   const [domain, setDomain] = useState('');
   const [severity, setSeverity] = useState('');
   const [query, setQuery] = useState('');
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [showOutOfScope, setShowOutOfScope] = useState(false);
+
+  // Los hallazgos de activos descartados o sin confirmar no cuentan en el KRI: ocultos por defecto.
+  const outOfScope = findings.filter((f) => f.assetOutOfScope).length;
+  const visible = showOutOfScope ? findings : findings.filter((f) => !f.assetOutOfScope);
 
   const q = query.trim().toLowerCase();
-  const rows = findings
+  const rows = visible
     .filter((f) => !status || f.status === status)
     .filter((f) => !domain || f.domain === domain)
     .filter((f) => !severity || f.severity === severity)
@@ -49,7 +56,7 @@ export function FindingsTable({ findings }: { findings: FindingDetail[] }) {
     .sort(
       (a, b) => SEVERITIES.indexOf(a.severity) - SEVERITIES.indexOf(b.severity) || b.observedAt.localeCompare(a.observedAt),
     );
-  const countBy = (s: FindingStatus) => findings.filter((f) => f.status === s).length;
+  const countBy = (s: FindingStatus) => visible.filter((f) => f.status === s).length;
 
   return (
     <section className={styles.card}>
@@ -105,6 +112,12 @@ export function FindingsTable({ findings }: { findings: FindingDetail[] }) {
             </option>
           ))}
         </select>
+        {outOfScope > 0 && (
+          <label className={styles.filterToggle} title="Hallazgos de activos descartados o sin confirmar; no cuentan en el KRI">
+            <input type="checkbox" checked={showOutOfScope} onChange={(e) => setShowOutOfScope(e.target.checked)} />
+            Mostrar {outOfScope} de activos fuera de alcance
+          </label>
+        )}
       </div>
 
       <div className={styles.tableWrap}>
@@ -139,6 +152,11 @@ export function FindingsTable({ findings }: { findings: FindingDetail[] }) {
                     <td className={styles.muted}>{formatDate(f.observedAt)}</td>
                     <td className={styles.wrap}>
                       {f.title}
+                      {f.assetOutOfScope && (
+                        <span className={styles.pill} style={{ color: 'var(--muted)', marginLeft: 8 }}>
+                          {OUT_OF_SCOPE_LABELS[f.assetOutOfScope]} · no cuenta en el KRI
+                        </span>
+                      )}
                       <div className={styles.subText}>
                         {[f.asset, f.sources.join(', '), `confianza ${CONFIDENCE_LABELS[f.confidence]}`]
                           .filter(Boolean)

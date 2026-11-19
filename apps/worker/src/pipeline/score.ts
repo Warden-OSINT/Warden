@@ -2,12 +2,14 @@ import type { Json } from '@warden/db';
 import { computeScore, type ScoreResult, type ScoringFinding, type WeightItem } from '@warden/scoring';
 import {
   CONFIDENCES,
+  FINDING_ASSET_SCOPE_COLUMNS,
   FINDING_STATUSES,
   RISK_DOMAIN_KEYS,
   SEVERITIES,
   type Confidence,
   type RiskDomainKey,
   type Severity,
+  onlyInScopeFindings,
 } from '@warden/shared';
 import type { Db } from '../supabase';
 
@@ -135,11 +137,14 @@ export async function scoreScan(
 async function loadOpenFindings(db: Db, companyId: string): Promise<ScoringFinding[]> {
   const findings: ScoringFinding[] = [];
   for (let from = 0; ; from += PAGE_SIZE) {
-    const { data, error } = await db
-      .from('findings')
-      .select('id, severity, confidence, status, risk_domains!inner(key)')
-      .eq('company_id', companyId)
-      .eq('status', 'open')
+    // Los hallazgos de activos fuera de alcance (descartados o sin confirmar) no cuentan.
+    const { data, error } = await onlyInScopeFindings(
+      db
+        .from('findings')
+        .select(`id, severity, confidence, status, risk_domains!inner(key), assets(${FINDING_ASSET_SCOPE_COLUMNS})`)
+        .eq('company_id', companyId)
+        .eq('status', 'open'),
+    )
       .order('id')
       .range(from, from + PAGE_SIZE - 1);
     if (error) throw error;
