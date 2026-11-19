@@ -72,7 +72,7 @@ export function countBySeverity(findings: readonly Pick<ScoringFinding, 'severit
 
 export function buildScoreEvent(
   ctx: SiemContext,
-  score: ScoreResult & { openFindings: readonly ScoringFinding[] },
+  score: ScoreResult & { openFindings: readonly Pick<ScoringFinding, 'severity'>[] },
   extra: { previousGrade: Grade | null; weightsVersion: number | null },
 ): ScoreEvent {
   return {
@@ -120,7 +120,7 @@ export async function enqueueSiemEvents(
   input: {
     ctx: SiemContext;
     weightVersionId: string | null;
-    score: ScoreResult & { openFindings: readonly ScoringFinding[] };
+    score: ScoreResult & { openFindings: readonly Pick<ScoringFinding, 'severity'>[] };
     previousGrade: Grade | null;
     alert: RaisedAlert | null;
   },

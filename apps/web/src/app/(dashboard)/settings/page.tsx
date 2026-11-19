@@ -22,6 +22,11 @@ const SECTIONS = [
     title: 'Alertas',
     hint: 'Umbral de nota, destinatarios e historial de alertas. Editar requiere rol admin.',
   },
+  {
+    href: '/settings/splunk',
+    title: 'Splunk (SIEM)',
+    hint: 'Estado de los eventos enviados a Splunk y reintento de los fallidos. Solo administradores.',
+  },
 ];
 
 export default function SettingsPage() {

@@ -61,9 +61,9 @@ Estos valores deben coincidir en tres lugares: `packages/shared/src/index.ts`, l
 | Página Hallazgos (`/findings`) | ✅ Filtros, evidencia y triage (`triageFinding`; motivo obligatorio para falso positivo / riesgo aceptado) |
 | Página Activos (`/assets`) | ✅ Inventario con filtros, conteo de hallazgos abiertos, alta manual (entra confirmada) y confirmación/descarte individual o masivo (`lib/assets.ts`, `setAssetsStatus`, `addAsset`) |
 | Página Reportes (`/reports`) | ✅ Un reporte por escaneo calificado (`lib/reports.ts`): KRI, notas por dominio, cobertura, fuentes, hallazgos abiertos y alertas; imprimible/PDF desde el navegador. Resumen ejecutivo con IA (estado, riesgos, recomendaciones y botón Regenerar) |
-| Configuración (`/settings`) | ✅ Usuarios, **Pesos del KRI** (crear y activar versiones; `lib/scoring-settings.ts`), **Programación de escaneos** (frecuencia, próxima ejecución en hora CST y pausa; `lib/schedule-settings.ts`, `saveSchedule`) y **Alertas** (umbral, destinatarios e historial). Editar requiere admin |
+| Configuración (`/settings`) | ✅ Usuarios, **Pesos del KRI** (crear y activar versiones; `lib/scoring-settings.ts`), **Programación de escaneos** (frecuencia, próxima ejecución en hora CST y pausa; `lib/schedule-settings.ts`, `saveSchedule`) **Alertas** (umbral, destinatarios e historial) y **Splunk (SIEM)** (estado de envíos y reintento; `lib/siem.ts`). Editar requiere admin |
 | Alertas | ✅ El worker registra `grade_drop` / `threshold_crossed` tras calificar (`pipeline/alerts.ts`, canal `in_app`) y, si hay destinatarios, un envío en `integration_outbox` (`destination = 'email'`) que manda por SMTP con reintentos (`pipeline/notify.ts`, `mailer.ts`). Sin `SMTP_HOST` quedan pendientes. Webhook pendiente |
-| SIEM (Splunk) | 🟡 Fase 1: tras calificar, el worker encola en `integration_outbox` (`destination = 'siem'`) un evento `score` y, si hubo, uno `alert`, y los manda a Splunk HEC (`pipeline/siem-events.ts`, `pipeline/siem.ts`). Sin `SPLUNK_HEC_URL` no se encola nada. Eventos de hallazgos pendientes ([docs/splunk-plan.md](docs/splunk-plan.md)) |
+| SIEM (Splunk) | 🟡 Fase 1: tras calificar, el worker encola en `integration_outbox` (`destination = 'siem'`) un evento `score` y, si hubo, uno `alert`, y los manda a Splunk HEC (`pipeline/siem-events.ts`, `pipeline/siem.ts`). Sin `SPLUNK_HEC_URL` no se encola nada. Al arrancar encola el último puntaje si nunca se envió (`pipeline/siem-backfill.ts`). Estado y reintento de fallidos en `/settings/splunk` (admin, RPC `retry_failed_siem_events`). Eventos de hallazgos pendientes ([docs/splunk-plan.md](docs/splunk-plan.md)) |
 | SOAR, archivado | 🔴 Solo tablas |
 
 **El modelo de scoring está definido en [docs/scoring-model.md](docs/scoring-model.md); no lo cambies sin acordarlo con el equipo.** Los puntos por severidad y factores por confianza de la versión 1 siguen como SUPUESTO. Con datos reales, KRI y notas son `null` hasta que el worker guarde el primer puntaje en `scores`. Qué está hecho y qué falta del KRI (IA, envío de alertas, HIBP…): [docs/kri-plan.md](docs/kri-plan.md).
@@ -122,6 +122,7 @@ Warden-/
 │               ├── collect.ts  Ejecuta colectores tras la compuerta no-contact; registra scan_sources
 │               ├── persist.ts  Upsert de activos (pending) y hallazgos (por fingerprint)
 │               ├── siem-events.ts  Arma y encola eventos para Splunk (score, alert)
+│               ├── siem-backfill.ts  Carga inicial del último puntaje al arrancar
 │               └── siem.ts     Envío a Splunk HEC desde integration_outbox
 ├── packages/                   Lógica compartida, consumida como TS fuente (sin build)
 │   ├── shared/                 @warden/shared — enums y tipos (dominios, severidades, colas…)

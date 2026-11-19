@@ -1063,6 +1063,10 @@ export type Database = {
       }
       request_report: { Args: { p_score_id: string }; Returns: undefined }
       request_scan: { Args: { p_company_id: string }; Returns: string }
+      retry_failed_siem_events: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
     }
     Enums: {
       [_ in never]: never
