@@ -131,6 +131,50 @@
   overflow-y: auto;
 }
 
+.kriValue {
+  color: var(--accent-strong);
+  font-size: 36px;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+.kriMeta {
+  line-height: 1.6;
+}
+
+.aiPlaceholder {
+  padding: 12px 14px;
+  border-style: solid;
+  border-radius: 5px;
+  background: var(--surface);
+  line-height: 1.55;
+}
+
+.domainButton {
+  border-radius: 5px;
+}
+
+.domainButton:hover,
+.domainSelected {
+  background: rgb(28 33 40 / 0.7);
+}
+
+.domainSelected {
+  border-color: var(--border);
+}
+
+.panelTitle {
+  font-size: 15px;
+  letter-spacing: -0.015em;
+}
+
+.aiHeading {
+  color: var(--text);
+  font-size: 12px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
 /* Impresión / "Guardar como PDF": fondo claro, sin navegación ni botones. */
 @media print {
   :global(nav),
