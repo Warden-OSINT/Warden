@@ -1,0 +1,29 @@
+name: Flujo de ramas
+
+# Promoción obligatoria: feat/fix → dev → staging → main.
+# Corre en todos los PR para poder marcarse como check requerido; solo falla
+# cuando un PR a staging o main no viene de la rama anterior del flujo.
+on:
+  pull_request:
+
+jobs:
+  flujo-ramas:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verificar rama de origen
+        env:
+          BASE: ${{ github.base_ref }}
+          HEAD: ${{ github.head_ref }}
+          SAME_REPO: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+        run: |
+          case "$BASE" in
+            main) expected=staging ;;
+            staging) expected=dev ;;
+            *) echo "PR hacia $BASE: sin restricción de origen."; exit 0 ;;
+          esac
+          # Un fork podría llamar "dev" a su rama: exigir que venga de este repositorio.
+          if [ "$HEAD" != "$expected" ] || [ "$SAME_REPO" != "true" ]; then
+            echo "::error::Los PR hacia $BASE deben venir de $expected de este repositorio (recibido: $HEAD). Flujo: feat/fix → dev → staging → main."
+            exit 1
+          fi
+          echo "PR $HEAD → $BASE permitido."

@@ -1,0 +1,106 @@
+.chart {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  grid-template-rows: 200px auto;
+  column-gap: 8px;
+  row-gap: 6px;
+  margin-top: 8px;
+}
+
+/* Eje Y: etiquetas posicionadas por porcentaje, igual que bandas y barras. */
+.yAxis {
+  position: relative;
+}
+
+.yLabel {
+  position: absolute;
+  right: 0;
+  transform: translateY(50%);
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1;
+}
+
+.plot {
+  position: relative;
+  border-left: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.band {
+  position: absolute;
+  left: 0;
+  right: 0;
+}
+
+.bandLetter {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0.6;
+}
+
+.gridLine {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px dashed var(--border);
+}
+
+.columns,
+.xAxis {
+  display: flex;
+  justify-content: space-around;
+  gap: 6px;
+  padding: 0 24px 0 6px;
+}
+
+.columns {
+  position: relative;
+  height: 100%;
+}
+
+.column,
+.xLabel {
+  flex: 1;
+  max-width: 56px;
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 4px;
+  height: 100%;
+}
+
+.value {
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.bar {
+  width: 100%;
+  border-radius: 4px 4px 0 0;
+  opacity: 0.85;
+}
+
+.column:last-child .bar {
+  opacity: 1;
+}
+
+.xAxis {
+  grid-column: 2;
+}
+
+.xLabel {
+  text-align: center;
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
