@@ -6,7 +6,7 @@ import type { EvidenceProvider } from './types';
 
 const target = { primaryDomain: 'example.com', confirmedDomains: [] };
 const context = { signal: new AbortController().signal, getSecret: () => undefined };
-const envelope = { schemaVersion: 1, sourceKey: 'email-dns', subjectDomain: 'example.com',
+const envelope = { schemaVersion: 1, sourceKey: 'email_dns', subjectDomain: 'example.com',
   observedAt: '2026-10-12T12:00:00Z' };
 const email = { ...envelope, spf: { status: 'ok', records: ['v=spf1 -all'] },
   dmarc: { status: 'ok', records: ['v=DMARC1; p=reject;'] },
@@ -71,8 +71,8 @@ describe('Análisis de credenciales', () => {
 });
 
 describe('Ejecutor compartido', () => {
-  const policy = { sourceKey: 'email-dns', isEnabled: true, isNoContact: true };
-  const provider: EvidenceProvider = { sourceKey: 'email-dns', moduleKey: 'email', isNoContact: true,
+  const policy = { sourceKey: 'email_dns', isEnabled: true, isNoContact: true };
+  const provider: EvidenceProvider = { sourceKey: 'email_dns', moduleKey: 'email', isNoContact: true,
     collect: async () => email };
 
   it('bloquea antes de ejecutar fuentes ausentes o activas y omite deshabilitadas', async () => {

@@ -18,3 +18,9 @@ Los escaneos OSINT pueden tardar minutos u horas, más que el límite de tiempo 
 
 - No hace falta infraestructura de colas adicional: todo vive en Supabase.
 - Las herramientas Python sin API (p. ej. checkdmarc, dnstwist) necesitarán su propio contenedor o un wrapper CLI dentro de la imagen del worker.
+
+## Nota posterior (noviembre 2026)
+
+La decisión sigue vigente. En la práctica no hizo falta empaquetar herramientas Python: las
+comprobaciones de checkdmarc y las técnicas de dnstwist se reimplementaron en TypeScript
+(`email_dns` y `typosquat`), y gitleaks, que es un binario de Go, se copia a la imagen del worker.

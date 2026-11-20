@@ -5,7 +5,8 @@ export const domainSchema = z.string().trim().toLowerCase().transform((v) => v.r
 
 export const evidenceEnvelope = {
   schemaVersion: z.literal(1),
-  sourceKey: z.string().regex(/^[a-z0-9-]{1,64}$/),
+  // Igual que el CHECK de sources.source_key en la BD.
+  sourceKey: z.string().regex(/^[a-z0-9_]{1,64}$/),
   subjectDomain: domainSchema,
   observedAt: z.iso.datetime(),
 };

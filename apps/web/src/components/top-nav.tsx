@@ -1,14 +1,14 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import styles from './top-nav.module.css';
 
-// Solo Dashboard existe por ahora; el resto de rutas está pendiente.
 const NAV = [
   { href: '/', label: 'Dashboard' },
-  { href: '/companies', label: 'Empresas' },
+  { href: '/assets', label: 'Activos' },
   { href: '/findings', label: 'Hallazgos' },
   { href: '/scans', label: 'Escaneos' },
   { href: '/reports', label: 'Reportes' },
@@ -31,13 +31,19 @@ export function TopNav() {
 
   return (
     <nav className={styles.nav}>
-      <span className={styles.brand}>Warden</span>
+      <Link href="/" className={styles.brand}>
+        {/* El PNG trae mucho margen alrededor del dibujo: el recorte lo ajusta al alto de la barra. */}
+        <span className={styles.logoCrop} aria-hidden>
+          <Image src="/logoWarden.png" alt="" width={48} height={48} className={styles.logo} priority />
+        </span>
+        Warden
+      </Link>
       <ul className={styles.tabs}>
         {NAV.map((item) => {
           const active = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
           return (
             <li key={item.href}>
-              <Link href={item.href} className={`${styles.tab} ${active ? styles.active : ''}`}>
+              <Link href={item.href} className={`${styles.tab} ${active ? styles.active : ''}`} aria-current={active ? 'page' : undefined}>
                 {item.label}
               </Link>
             </li>

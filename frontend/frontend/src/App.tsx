@@ -10,11 +10,12 @@ const App: FC = () => {
   if(token) {
     return (
       <div style={{ padding: '2rem'}}>
-        <h1>Inicio de Sesión</h1>
+        <h1> Dashboard </h1>
         <button onClick={() => {
           localStorage.removeItem('token');
           setToken(null);
         }}>
+          Regresar
         </button>
       </div>
     );

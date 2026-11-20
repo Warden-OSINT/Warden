@@ -62,9 +62,10 @@ const Login: React.FC<LoginProps> = ({ onSuccess }) => {
     };
 
     return (
+        
         <div className={styles.container}>
+            <h1 className={styles.title}> Inicio de Sesión </h1>
             <form onSubmit={handleSubmit} className={styles.form} noValidate>
-                <h2 className={styles.title}> Iniciar Sesión </h2>
 
                 {error?.field === 'general' && (
                     <div className={styles.errorBox}>{error.message}</div>
@@ -72,7 +73,7 @@ const Login: React.FC<LoginProps> = ({ onSuccess }) => {
 
                 <div className={styles.field}>
                     <label htmlFor="email" className={styles.label}>
-                        Email
+                        Usuario
                     </label>
                     <input
                         id="email"
@@ -115,7 +116,7 @@ const Login: React.FC<LoginProps> = ({ onSuccess }) => {
                 </div>
 
                 <button type="submit" disabled={isLoading} className={styles.button}>
-                    {isLoading ? 'Ingresando...' : 'Ingresar'}
+                    {isLoading ? 'Ingresando...' : 'Iniciar Sesión'}
                 </button>
 
                 <p className={styles.hint}>

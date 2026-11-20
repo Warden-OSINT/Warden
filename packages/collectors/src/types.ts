@@ -32,9 +32,24 @@ export interface NormalizedFinding {
   rawReference?: unknown;
 }
 
+/**
+ * Algo que el colector observó pero que no es un hallazgo, para explicar un resultado
+ * (p. ej. una IP omitida por ser de un CDN). Se guarda en scan_sources.notices.
+ */
+export interface CollectorNotice {
+  /** cdn: IP omitida por ser de un CDN. observation: estado observado (p. ej. SPF publicado). */
+  kind: 'cdn' | 'observation';
+  /** Valor afectado, p. ej. la IP. */
+  subject: string;
+  message: string;
+  /** Debe ser serializable a JSON. */
+  details: Record<string, unknown>;
+}
+
 export interface CollectorResult {
   assets: DiscoveredAsset[];
   findings: NormalizedFinding[];
+  notices?: CollectorNotice[];
 }
 
 export interface Collector {

@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -7,11 +7,6 @@
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.18"
-  }
   graphql_public: {
     Tables: {
       [_ in never]: never
@@ -43,19 +38,20 @@ export type Database = {
         Row: {
           created_by: string | null
           id: string
-          recipients: Json
+          recipients: NonNullable<Json>
           threshold_grade: string
         }
+        ComputedFields: never
         Insert: {
           created_by?: string | null
           id?: string
-          recipients?: Json
+          recipients?: NonNullable<Json>
           threshold_grade: string
         }
         Update: {
           created_by?: string | null
           id?: string
-          recipients?: Json
+          recipients?: NonNullable<Json>
           threshold_grade?: string
         }
         Relationships: [
@@ -78,6 +74,7 @@ export type Database = {
           score_id: string
           sent_at: string | null
         }
+        ComputedFields: never
         Insert: {
           alert_type: string
           channel: string
@@ -118,6 +115,7 @@ export type Database = {
           source_table: string
           storage_path: string
         }
+        ComputedFields: never
         Insert: {
           archived_at?: string
           company_id: string
@@ -162,6 +160,7 @@ export type Database = {
           last_seen: string
           value: string
         }
+        ComputedFields: never
         Insert: {
           asset_type: string
           attribution_status?: string
@@ -206,17 +205,18 @@ export type Database = {
           action: string
           actor_id: string | null
           created_at: string
-          detail: Json
+          detail: NonNullable<Json>
           entity_id: string | null
           entity_type: string
           id: number
           ip_address: unknown
         }
+        ComputedFields: never
         Insert: {
           action: string
           actor_id?: string | null
           created_at?: string
-          detail?: Json
+          detail?: NonNullable<Json>
           entity_id?: string | null
           entity_type: string
           id?: never
@@ -226,7 +226,7 @@ export type Database = {
           action?: string
           actor_id?: string | null
           created_at?: string
-          detail?: Json
+          detail?: NonNullable<Json>
           entity_id?: string | null
           entity_type?: string
           id?: never
@@ -251,6 +251,7 @@ export type Database = {
           primary_domain: string
           status: string
         }
+        ComputedFields: never
         Insert: {
           created_at?: string
           created_by?: string | null
@@ -280,16 +281,20 @@ export type Database = {
       finding_sources: {
         Row: {
           finding_id: string
+          last_seen_scan_id: string | null
           raw_reference: Json | null
           source_key: string
         }
+        ComputedFields: never
         Insert: {
           finding_id: string
+          last_seen_scan_id?: string | null
           raw_reference?: Json | null
           source_key: string
         }
         Update: {
           finding_id?: string
+          last_seen_scan_id?: string | null
           raw_reference?: Json | null
           source_key?: string
         }
@@ -299,6 +304,13 @@ export type Database = {
             columns: ["finding_id"]
             isOneToOne: false
             referencedRelation: "findings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finding_sources_last_seen_scan_id_fkey"
+            columns: ["last_seen_scan_id"]
+            isOneToOne: false
+            referencedRelation: "scans"
             referencedColumns: ["id"]
           },
           {
@@ -315,7 +327,7 @@ export type Database = {
           asset_id: string | null
           company_id: string
           confidence: string
-          evidence: Json
+          evidence: NonNullable<Json>
           evidence_path: string | null
           fingerprint: string
           id: string
@@ -328,11 +340,12 @@ export type Database = {
           status_reason: string | null
           title: string
         }
+        ComputedFields: never
         Insert: {
           asset_id?: string | null
           company_id: string
           confidence: string
-          evidence?: Json
+          evidence?: NonNullable<Json>
           evidence_path?: string | null
           fingerprint: string
           id?: string
@@ -349,7 +362,7 @@ export type Database = {
           asset_id?: string | null
           company_id?: string
           confidence?: string
-          evidence?: Json
+          evidence?: NonNullable<Json>
           evidence_path?: string | null
           fingerprint?: string
           id?: string
@@ -402,36 +415,64 @@ export type Database = {
       }
       integration_outbox: {
         Row: {
+          alert_id: string | null
           attempts: number
           created_at: string
           destination: string
           event_type: string
           id: number
-          payload: Json
+          last_error: string | null
+          next_attempt_at: string
+          payload: NonNullable<Json>
+          score_id: string | null
           sent_at: string | null
           status: string
         }
+        ComputedFields: never
         Insert: {
+          alert_id?: string | null
           attempts?: number
           created_at?: string
           destination: string
           event_type: string
           id?: never
-          payload: Json
+          last_error?: string | null
+          next_attempt_at?: string
+          payload: NonNullable<Json>
+          score_id?: string | null
           sent_at?: string | null
           status?: string
         }
         Update: {
+          alert_id?: string | null
           attempts?: number
           created_at?: string
           destination?: string
           event_type?: string
           id?: never
-          payload?: Json
+          last_error?: string | null
+          next_attempt_at?: string
+          payload?: NonNullable<Json>
+          score_id?: string | null
           sent_at?: string | null
           status?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "integration_outbox_alert_id_fkey"
+            columns: ["alert_id"]
+            isOneToOne: false
+            referencedRelation: "alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "integration_outbox_score_id_fkey"
+            columns: ["score_id"]
+            isOneToOne: false
+            referencedRelation: "scores"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -441,6 +482,7 @@ export type Database = {
           is_active: boolean
           role: string
         }
+        ComputedFields: never
         Insert: {
           created_at?: string
           full_name?: string | null
@@ -459,34 +501,44 @@ export type Database = {
       }
       reports: {
         Row: {
+          content: Json | null
           context_hash: string | null
+          error_message: string | null
           generated_at: string
           id: string
           model_used: string | null
           pdf_path: string | null
           prompt_version: string | null
+          requested_at: string
           score_id: string
           status: string
           summary_text: string | null
         }
+        ComputedFields: never
         Insert: {
+          content?: Json | null
           context_hash?: string | null
+          error_message?: string | null
           generated_at?: string
           id?: string
           model_used?: string | null
           pdf_path?: string | null
           prompt_version?: string | null
+          requested_at?: string
           score_id: string
           status?: string
           summary_text?: string | null
         }
         Update: {
+          content?: Json | null
           context_hash?: string | null
+          error_message?: string | null
           generated_at?: string
           id?: string
           model_used?: string | null
           pdf_path?: string | null
           prompt_version?: string | null
+          requested_at?: string
           score_id?: string
           status?: string
           summary_text?: string | null
@@ -508,6 +560,7 @@ export type Database = {
           key: string
           name: string
         }
+        ComputedFields: never
         Insert: {
           description?: string | null
           id?: never
@@ -524,28 +577,38 @@ export type Database = {
       }
       scan_sources: {
         Row: {
+          assets_returned: number
+          findings_returned: number
           id: string
           items_returned: number
           latency_ms: number | null
           message: string | null
+          notices: NonNullable<Json>
           scan_id: string
           source_key: string
           status: string
         }
+        ComputedFields: never
         Insert: {
+          assets_returned?: number
+          findings_returned?: number
           id?: string
           items_returned?: number
           latency_ms?: number | null
           message?: string | null
+          notices?: NonNullable<Json>
           scan_id: string
           source_key: string
           status: string
         }
         Update: {
+          assets_returned?: number
+          findings_returned?: number
           id?: string
           items_returned?: number
           latency_ms?: number | null
           message?: string | null
+          notices?: NonNullable<Json>
           scan_id?: string
           source_key?: string
           status?: string
@@ -569,42 +632,52 @@ export type Database = {
       }
       scans: {
         Row: {
+          cancelled_by: string | null
           company_id: string
           created_at: string
+          current_source: string | null
           error_message: string | null
           finished_at: string | null
           id: string
           raw_payload_hash: string | null
           raw_payload_path: string | null
           requested_by: string | null
+          sources_total: number | null
           started_at: string | null
           status: string
           trigger_type: string
           weight_version_id: string | null
         }
+        ComputedFields: never
         Insert: {
+          cancelled_by?: string | null
           company_id: string
           created_at?: string
+          current_source?: string | null
           error_message?: string | null
           finished_at?: string | null
           id?: string
           raw_payload_hash?: string | null
           raw_payload_path?: string | null
           requested_by?: string | null
+          sources_total?: number | null
           started_at?: string | null
           status?: string
           trigger_type: string
           weight_version_id?: string | null
         }
         Update: {
+          cancelled_by?: string | null
           company_id?: string
           created_at?: string
+          current_source?: string | null
           error_message?: string | null
           finished_at?: string | null
           id?: string
           raw_payload_hash?: string | null
           raw_payload_path?: string | null
           requested_by?: string | null
+          sources_total?: number | null
           started_at?: string | null
           status?: string
           trigger_type?: string
@@ -612,11 +685,25 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "scans_cancelled_by_fkey"
+            columns: ["cancelled_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "scans_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scans_current_source_fkey"
+            columns: ["current_source"]
+            isOneToOne: false
+            referencedRelation: "sources"
+            referencedColumns: ["source_key"]
           },
           {
             foreignKeyName: "scans_requested_by_fkey"
@@ -642,6 +729,7 @@ export type Database = {
           is_active: boolean
           next_run_at: string
         }
+        ComputedFields: never
         Insert: {
           company_id: string
           frequency: string
@@ -674,6 +762,7 @@ export type Database = {
           risk_domain_id: number
           score_id: string
         }
+        ComputedFields: never
         Insert: {
           domain_score: number
           findings_count?: number
@@ -709,15 +798,18 @@ export type Database = {
         Row: {
           company_id: string
           computed_at: string
+          excluded_domains: string[]
           global_score: number
           grade: string
           id: string
           scan_id: string
           weight_version_id: string
         }
+        ComputedFields: never
         Insert: {
           company_id: string
           computed_at?: string
+          excluded_domains?: string[]
           global_score: number
           grade: string
           id?: string
@@ -727,6 +819,7 @@ export type Database = {
         Update: {
           company_id?: string
           computed_at?: string
+          excluded_domains?: string[]
           global_score?: number
           grade?: string
           id?: string
@@ -759,23 +852,24 @@ export type Database = {
       }
       scoring_weight_items: {
         Row: {
-          confidence_factors: Json
+          confidence_factors: NonNullable<Json>
           risk_domain_id: number
-          severity_points: Json
+          severity_points: NonNullable<Json>
           weight: number
           weight_version_id: string
         }
+        ComputedFields: never
         Insert: {
-          confidence_factors?: Json
+          confidence_factors?: NonNullable<Json>
           risk_domain_id: number
-          severity_points?: Json
+          severity_points?: NonNullable<Json>
           weight: number
           weight_version_id: string
         }
         Update: {
-          confidence_factors?: Json
+          confidence_factors?: NonNullable<Json>
           risk_domain_id?: number
-          severity_points?: Json
+          severity_points?: NonNullable<Json>
           weight?: number
           weight_version_id?: string
         }
@@ -804,6 +898,7 @@ export type Database = {
           is_active: boolean
           version: number
         }
+        ComputedFields: never
         Insert: {
           created_by?: string | null
           effective_from?: string
@@ -836,6 +931,7 @@ export type Database = {
           secret_ref: string
           source_key: string
         }
+        ComputedFields: never
         Insert: {
           id?: string
           is_valid?: boolean | null
@@ -869,6 +965,7 @@ export type Database = {
           risk_domain_id: number
           source_key: string
         }
+        ComputedFields: never
         Insert: {
           is_enabled?: boolean
           is_no_contact?: boolean
@@ -904,10 +1001,38 @@ export type Database = {
         Args: { p_weight_version_id: string }
         Returns: undefined
       }
-      app_role: { Args: never; Returns: string }
-      enqueue_due_scans: { Args: never; Returns: number }
-      is_admin: { Args: never; Returns: boolean }
-      is_member: { Args: never; Returns: boolean }
+      app_role: { Args: Record<PropertyKey, never>; Returns: string }
+      cancel_scan: { Args: { p_scan_id: string }; Returns: boolean }
+      claim_outbox: {
+        Args: {
+          p_destination: string
+          p_lease_seconds: number
+          p_limit: number
+        }
+        Returns: {
+          alert_id: string | null
+          attempts: number
+          created_at: string
+          destination: string
+          event_type: string
+          id: number
+          last_error: string | null
+          next_attempt_at: string
+          payload: NonNullable<Json>
+          score_id: string | null
+          sent_at: string | null
+          status: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "integration_outbox"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      enqueue_due_scans: { Args: Record<PropertyKey, never>; Returns: number }
+      is_admin: { Args: Record<PropertyKey, never>; Returns: boolean }
+      is_member: { Args: Record<PropertyKey, never>; Returns: boolean }
       queue_delete: {
         Args: { p_msg_id: number; p_queue: string }
         Returns: boolean
@@ -924,7 +1049,24 @@ export type Database = {
           read_ct: number
         }[]
       }
+      queue_set_vt: {
+        Args: {
+          p_msg_id: number
+          p_queue: string
+          p_visibility_timeout: number
+        }
+        Returns: boolean
+      }
+      register_company: {
+        Args: { p_domain: string; p_name: string }
+        Returns: string
+      }
+      request_report: { Args: { p_score_id: string }; Returns: undefined }
       request_scan: { Args: { p_company_id: string }; Returns: string }
+      retry_failed_siem_events: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
     }
     Enums: {
       [_ in never]: never
@@ -970,8 +1112,7 @@ export type Tables<
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
+    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
   TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
@@ -995,8 +1136,7 @@ export type TablesInsert<
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
+    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
   TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
@@ -1020,8 +1160,7 @@ export type TablesUpdate<
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema["Enums"]
-    | { schema: keyof DatabaseWithoutInternals },
+    keyof DefaultSchema["Enums"] | { schema: keyof DatabaseWithoutInternals },
   EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
