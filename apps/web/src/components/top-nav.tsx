@@ -43,7 +43,7 @@ export function TopNav() {
           const active = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
           return (
             <li key={item.href}>
-              <Link href={item.href} className={`${styles.tab} ${active ? styles.active : ''}`}>
+              <Link href={item.href} className={`${styles.tab} ${active ? styles.active : ''}`} aria-current={active ? 'page' : undefined}>
                 {item.label}
               </Link>
             </li>

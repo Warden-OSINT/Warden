@@ -11,11 +11,11 @@ export const GRADE_COLORS: Record<Grade, string> = {
 };
 
 export const SEVERITY_COLORS: Record<Severity, string> = {
-  critical: 'var(--grade-f)',
-  high: 'var(--grade-d)',
-  medium: 'var(--grade-c)',
-  low: 'var(--grade-b)',
-  info: 'var(--muted)',
+  critical: 'var(--severity-critical)',
+  high: 'var(--severity-high)',
+  medium: 'var(--severity-medium)',
+  low: 'var(--severity-low)',
+  info: 'var(--severity-info)',
 };
 
 const SEVERITY_LABELS: Record<Severity, string> = {
