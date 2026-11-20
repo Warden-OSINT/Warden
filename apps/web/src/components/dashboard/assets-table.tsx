@@ -1,6 +1,7 @@
 'use client';
 
 import type { AssetType } from '@warden/shared';
+import Link from 'next/link';
 import { useState, useTransition } from 'react';
 import { setAssetStatus } from '@/app/(dashboard)/actions';
 import type { AssetRow, AttributionStatus } from '@/lib/dashboard-types';
@@ -13,6 +14,7 @@ const TYPE_LABELS: Record<AssetType, string> = {
   ip: 'IP',
   ip_range: 'Rango IP',
   asn: 'ASN',
+  code_org: 'Org. de código',
 };
 
 const STATUS_LABELS: Record<AttributionStatus, string> = {
@@ -29,6 +31,9 @@ const STATUS_COLORS: Record<AttributionStatus, string> = {
 
 // Los pendientes van primero: solo los confirmados se escanean (ver run-scan.ts).
 const STATUS_ORDER: Record<AttributionStatus, number> = { pending: 0, confirmed: 1, discarded: 2 };
+
+// El dashboard es un resumen: el inventario completo vive en /assets.
+const MAX_ROWS = 15;
 
 export function AssetsTable({ assets, editable }: { assets: AssetRow[]; editable: boolean }) {
   const [query, setQuery] = useState('');
@@ -49,6 +54,7 @@ export function AssetsTable({ assets, editable }: { assets: AssetRow[]; editable
     .filter((a) => !q || a.value.toLowerCase().includes(q))
     .filter((a) => !status || a.status === status)
     .sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status] || a.value.localeCompare(b.value));
+  const visible = rows.slice(0, MAX_ROWS);
   const pendingCount = assets.filter((a) => a.status === 'pending').length;
 
   return (
@@ -89,7 +95,7 @@ export function AssetsTable({ assets, editable }: { assets: AssetRow[]; editable
 
       {error && <p className={styles.error}>{error}</p>}
 
-      <div className={styles.tableWrap}>
+      <div className={`${styles.tableWrap} ${styles.tableScroll}`}>
         <table className={styles.table}>
           <thead>
             <tr>
@@ -102,7 +108,7 @@ export function AssetsTable({ assets, editable }: { assets: AssetRow[]; editable
             </tr>
           </thead>
           <tbody>
-            {rows.map((a) => (
+            {visible.map((a) => (
               <tr key={a.id}>
                 <td>{a.value}</td>
                 <td className={styles.muted}>{TYPE_LABELS[a.type]}</td>
@@ -143,6 +149,17 @@ export function AssetsTable({ assets, editable }: { assets: AssetRow[]; editable
         </table>
         {rows.length === 0 && <p className={styles.empty}>Ningún activo coincide con los filtros.</p>}
       </div>
+
+      {rows.length > MAX_ROWS && (
+        <div className={styles.tableFooter}>
+          <span>
+            Mostrando {MAX_ROWS} de {rows.length}
+          </span>
+          <Link href="/assets" className={styles.linkButton}>
+            Ver todos en Activos
+          </Link>
+        </div>
+      )}
     </section>
   );
 }

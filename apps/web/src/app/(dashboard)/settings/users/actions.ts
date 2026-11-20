@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { displayIdentifier, normalizeIdentifier, toAuthEmail } from '@/lib/local-user';
 import { isLocalUserAdminEnabled } from '@/lib/local-user-admin';
 import type { ManagedUser, UserCommand } from '../../../../../../../supabase/functions/manage-users/handler';
 
@@ -30,7 +31,7 @@ async function invoke(command: UserCommand): Promise<UserResponse> {
         const body = await error.context.json().catch(() => null);
         if (typeof body?.error === 'string') return { error: body.error };
       }
-      return { error: 'No se pudo contactar la función local. Revisa que manage-users esté en ejecución' };
+      return { error: 'No se pudo contactar la función manage-users. Reinicia Supabase local (`npx supabase stop` y `pnpm db:start`).' };
     }
     return data as { users?: ManagedUser[]; hasMore?: boolean; error?: string; warning?: string };
   } catch {
@@ -49,7 +50,8 @@ export async function createUser(_previous: UserActionResult, form: FormData): P
     role: String(form.get('role') ?? '') as 'admin' | 'analyst' });
   if (result.error) return { error: result.error };
   revalidatePath('/settings/users');
-  return { message: 'Usuario creado. Actívalo en el listado para permitir su acceso.', warning: result.warning };
+  const username = displayIdentifier(toAuthEmail(normalizeIdentifier(String(form.get('email') ?? ''))));
+  return { message: `Usuario «${username}» creado. Actívalo en la lista para que pueda entrar.`, warning: result.warning };
 }
 
 export async function updateUser(_previous: UserActionResult, form: FormData): Promise<UserActionResult> {

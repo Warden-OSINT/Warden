@@ -34,10 +34,10 @@ Los usuarios nuevos se crean con `is_active = false`; un admin los activa en `pu
 |---|---|---|
 | `exposure` | Exposición de servicios | Shodan InternetDB ✅ (SpiderFoot pasivo previsto) |
 | `email` | Seguridad de correo (SPF/DKIM/DMARC/MX) | DNS público `email_dns` ✅ (SPF/DMARC/MX); checkdmarc previsto |
-| `certs` | Certificados (CT logs) | crt.sh ✅ |
-| `secrets` | Secretos filtrados en repos públicos | gitleaks |
-| `reputation` | Listas de malware/phishing/botnets | abuse.ch |
-| `impersonation` | Typosquatting | dnstwist |
+| `certs` | Certificados (CT logs + CAA) | crt.sh ✅ |
+| `secrets` | Secretos filtrados en repos públicos | gitleaks ✅ (repos de activos `code_org`) |
+| `reputation` | Listas de malware/phishing/botnets | abuse.ch ✅ (URLhaus, ThreatFox, Feodo) |
+| `impersonation` | Typosquatting | `typosquat` ✅ (técnicas de dnstwist, solo vía DNS público DoH) |
 
 Estos valores deben coincidir en tres lugares: `packages/shared/src/index.ts`, los CHECK constraints de las migraciones y `supabase/seed.sql`.
 
@@ -50,18 +50,23 @@ Estos valores deben coincidir en tres lugares: `packages/shared/src/index.ts`, l
 | Esquema de BD, RLS, colas, cron | ✅ Completo (`supabase/migrations/`) |
 | Login con Supabase Auth | ✅ `apps/web/src/app/(auth)/login` |
 | Usuarios locales | ✅ `/settings/users`: creación, nombre/rol, activación y contraseñas mediante la función local `manage-users`; requiere Supabase local, admin activo y función habilitada. Correo verificado y MFA pendientes (`docs/local-users.md`). |
-| Dashboard | 🟡 Datos reales de Supabase (`lib/dashboard-data.ts`): registro de la empresa, panel de exposición, escaneo manual, confirmación de activos y habilitar `internetdb` (admin). KRI y notas muestran "—" hasta que exista el scoring. Sin sesión y con `WARDEN_DEV_SKIP_AUTH` usa `mock-dashboard.ts` |
+| Dashboard | 🟡 Datos reales de Supabase (`lib/dashboard-data.ts`): registro de la empresa, paneles de exposición, correo y reputación, escaneo manual, confirmación de activos y habilitar `internetdb` (admin). KRI y notas por dominio desde `scores` (dominios sin datos marcados como cobertura parcial) y aviso si el último escaneo disparó una alerta. Sin sesión y con `WARDEN_DEV_SKIP_AUTH` usa `mock-dashboard.ts` |
 | `POST /api/scans` | ✅ Encola escaneos manuales |
 | Worker (cola → colectores → persistencia) | ✅ Funciona |
-| Colectores del pipeline | 🟡 `crtsh` (descubre subdominios, sin hallazgos), `internetdb` (IPs → hallazgos de `exposure`, avisos de CDN) y `email_dns` (SPF/DMARC/MX → hallazgos de `email`). Se habilitan desde la tarjeta **Fuentes de datos** del dashboard (admin). `hibp` sigue fuera |
-| Motor de scoring | 🔴 **Sin definir**: `computeScore()` lanza `ScoringModelNotDefinedError` |
-| Resúmenes con IA | 🟡 Paquete listo (`@warden/ai`), aún no conectado al worker |
+| Colectores del pipeline | ✅ `crtsh` (subdominios + hallazgos de `certs`: comodines, vencimientos, CAA; si crt.sh no responde usa Cert Spotter como respaldo, solo certificados vigentes), `typosquat` (dominios parecidos → `impersonation`), `gitleaks` (repos públicos de activos `code_org` → `secrets`; requiere `git` y `gitleaks` en el worker), `internetdb` (IPs → hallazgos de `exposure`, avisos de CDN), `email_dns` (SPF/DMARC/MX → hallazgos de `email`) y `abusech` (URLhaus/ThreatFox/Feodo → hallazgos de `reputation`; requiere `ABUSECH_AUTH_KEY`). Se habilitan desde la tarjeta **Fuentes de datos** del dashboard (admin). `hibp` sigue fuera |
+| Motor de scoring | ✅ `@warden/scoring` (`computeScore`, puro) + `pipeline/score.ts` en el worker; pesos v1 en `seed.sql` (puntos por severidad/confianza como SUPUESTO) |
+| Resúmenes con IA | ✅ Tras calificar, el worker encola `report_requests` (`request_report`) y genera el resumen con `@warden/ai` (`pipeline/report.ts`): contexto con nota, dominios y títulos de los hallazgos más severos, pasado por `redact()`. Se guarda en `reports` como `draft` (borrador sin revisión humana). Requiere `OPENROUTER_API_KEY` y `OPENROUTER_MODEL` |
 | Análisis de correo / credenciales en brechas | 🟡 `@warden/risk-analysis` y adaptadores DNS/HIBP implementados; aún fuera de `runScan` y del catálogo productivo (ver `docs/risk-analysis.md`) |
-| Página Escaneos (`/scans`) | ✅ Historial con estado y resultado por fuente (`lib/scan-history.ts`) |
-| Páginas Activos / Hallazgos / Reportes | 🔴 Pendientes (ya están en la `TopNav`); Configuración ya enlaza a Usuarios |
-| Alertas, outbox SIEM/SOAR, archivado | 🔴 Solo tablas |
+| Página Escaneos (`/scans`) | ✅ Historial con estado, KRI y resultado por fuente (`lib/scan-history.ts`) |
+| Página Hallazgos (`/findings`) | ✅ Filtros, evidencia y triage (`triageFinding`; motivo obligatorio para falso positivo / riesgo aceptado). Oculta por defecto los hallazgos de activos fuera de alcance (descartados o manuales sin confirmar) |
+| Página Activos (`/assets`) | ✅ Inventario con filtros, conteo de hallazgos abiertos, alta manual (entra confirmada) y confirmación/descarte individual o masivo (`lib/assets.ts`, `setAssetsStatus`, `addAsset`) |
+| Página Reportes (`/reports`) | ✅ Un reporte por escaneo calificado (`lib/reports.ts`): KRI, notas por dominio, cobertura, fuentes, hallazgos abiertos y alertas; imprimible/PDF desde el navegador. Resumen ejecutivo con IA (estado, riesgos, recomendaciones y botón Regenerar) |
+| Configuración (`/settings`) | ✅ Usuarios, **Pesos del KRI** (crear y activar versiones; `lib/scoring-settings.ts`), **Programación de escaneos** (frecuencia, próxima ejecución en hora CST y pausa; `lib/schedule-settings.ts`, `saveSchedule`) **Alertas** (umbral, destinatarios e historial) y **Splunk (SIEM)** (estado de envíos y reintento; `lib/siem.ts`). Editar requiere admin |
+| Alertas | ✅ El worker registra `grade_drop` / `threshold_crossed` tras calificar (`pipeline/alerts.ts`, canal `in_app`) y, si hay destinatarios, un envío en `integration_outbox` (`destination = 'email'`) que manda por SMTP con reintentos (`pipeline/notify.ts`, `mailer.ts`). Sin `SMTP_HOST` quedan pendientes. Webhook pendiente |
+| SIEM (Splunk) | 🟡 Fase 1: tras calificar, el worker encola en `integration_outbox` (`destination = 'siem'`) un evento `score` y, si hubo, uno `alert`, y los manda a Splunk HEC (`pipeline/siem-events.ts`, `pipeline/siem.ts`). Sin `SPLUNK_HEC_URL` no se encola nada. Al arrancar encola el último puntaje si nunca se envió (`pipeline/siem-backfill.ts`). Estado y reintento de fallidos en `/settings/splunk` (admin, RPC `retry_failed_siem_events`). Eventos de hallazgos pendientes ([docs/splunk-plan.md](docs/splunk-plan.md)) |
+| SOAR, archivado | 🔴 Solo tablas |
 
-**No inventes el modelo de scoring.** Las preguntas abiertas están en [docs/scoring-model.md](docs/scoring-model.md). Si una tarea lo necesita, pregunta al equipo o deja un supuesto explícito y comentado (como hace `mock-dashboard.ts`: "puntaje 0–100, más alto es mejor"). Con datos reales, KRI y notas son `null` hasta que haya filas en `scores`.
+**El modelo de scoring está definido en [docs/scoring-model.md](docs/scoring-model.md); no lo cambies sin acordarlo con el equipo.** Los puntos por severidad y factores por confianza de la versión 1 siguen como SUPUESTO. Con datos reales, KRI y notas son `null` hasta que el worker guarde el primer puntaje en `scores`. Qué está hecho y qué falta del KRI (IA, envío de alertas, HIBP…): [docs/kri-plan.md](docs/kri-plan.md).
 
 ---
 
@@ -71,7 +76,7 @@ Estos valores deben coincidir en tres lugares: `packages/shared/src/index.ts`, l
 - **Monorepo:** pnpm workspaces + Turborepo. Node 24. `pnpm@10`.
 - **Web:** Next.js 16 (App Router) + React 19, CSS Modules (sin Tailwind ni librería de UI). Desplegada en Vercel.
 - **Worker:** Node + `tsx`, en contenedor Docker (Railway/Fly/VM).
-- **Datos:** Supabase — Postgres, Auth, Storage, colas (`pgmq`) y `pg_cron`.
+- **Datos:** Supabase — Postgres, Auth, Storage, colas (`pgmq`) y `pg_cron`. CLI v3 (la misma versión fija en CI): los comandos apuntan al stack local por defecto; contra un proyecto hospedado se usa `--remote` y, sin terminal interactiva, `--yes`.
 - **IA:** OpenRouter (API compatible con OpenAI) para resúmenes ejecutivos.
 - **Validación:** `zod` v4.
 - **Tests:** `vitest`.
@@ -93,12 +98,17 @@ Warden-/
 │   │       │   ├── layout.tsx           Root layout (lang="es")
 │   │       │   └── globals.css          Tokens de color (--bg, --grade-a … --grade-f)
 │   │       ├── components/              Componentes UI + *.module.css
-│   │       │   └── dashboard/           Gauge, activos, dominios, tendencia, hallazgos
+│   │       │   ├── dashboard/           Gauge, activos, dominios, tendencia, hallazgos
+│   │       │   ├── reports/             Lista y vista imprimible de reportes, alertas
+│   │       │   └── settings/            Pesos del KRI, programación de escaneos y reglas de alerta
 │   │       ├── lib/
 │   │       │   ├── supabase/client.ts   Cliente para Client Components
 │   │       │   ├── supabase/server.ts   Cliente para Server Components / Route Handlers
 │   │       │   ├── dashboard-types.ts   Formas que consumen los componentes del dashboard
 │   │       │   ├── dashboard-data.ts    loadDashboard(): consultas a Supabase con la sesión (RLS)
+│   │       │   ├── reports.ts           Reportes por escaneo calificado (scores)
+│   │       │   ├── alerts.ts            Alertas recientes
+│   │       │   ├── scoring-settings.ts  Versiones de pesos y alert_settings
 │   │       │   └── mock-dashboard.ts    Datos de ejemplo (solo dev sin sesión)
 │   │       └── proxy.ts                 "Middleware" de Next 16: refresca sesión, redirige a /login
 │   └── worker/                 @warden/worker — consumidor de colas
@@ -110,7 +120,10 @@ Warden-/
 │           ├── jobs/run-scan.ts         Orquesta un escaneo (estados, reintentos)
 │           └── pipeline/
 │               ├── collect.ts  Ejecuta colectores tras la compuerta no-contact; registra scan_sources
-│               └── persist.ts  Upsert de activos (pending) y hallazgos (por fingerprint)
+│               ├── persist.ts  Upsert de activos (pending) y hallazgos (por fingerprint)
+│               ├── siem-events.ts  Arma y encola eventos para Splunk (score, alert)
+│               ├── siem-backfill.ts  Carga inicial del último puntaje al arrancar
+│               └── siem.ts     Envío a Splunk HEC desde integration_outbox
 ├── packages/                   Lógica compartida, consumida como TS fuente (sin build)
 │   ├── shared/                 @warden/shared — enums y tipos (dominios, severidades, colas…)
 │   ├── db/                     @warden/db — tipos generados de Supabase (NO editar a mano)
@@ -120,9 +133,12 @@ Warden-/
 │   │       ├── registry.ts     Mapa de colectores activos
 │   │       ├── no-contact-guard.ts
 │   │       ├── fingerprint.ts  Huella estable para deduplicar hallazgos
-│   │       ├── crtsh/          collector.ts + mapper.ts + mapper.test.ts
+│   │       ├── crtsh/          collector.ts + mapper.ts (subdominios) + certs.ts (hallazgos de certs) + certspotter.ts (respaldo) + tests
+│   │       ├── typosquat/      fuzz.ts (permutaciones) + collector.ts/mapper.ts + tests (impersonation)
+│   │       ├── gitleaks/       collector.ts (GitHub API + git + gitleaks) + mapper.ts + tests (secrets)
 │   │       ├── internetdb/     collector.ts + mapper.ts + tests — puertos/CVE por IP (exposure)
-│   │       ├── dns/            resolve-ipv4.ts — registros A vía dns.google (DoH)
+│   │       ├── abusech/        collector.ts + mapper.ts + tests — URLhaus/ThreatFox/Feodo (reputation)
+│   │       ├── dns/            resolver.ts (DoH: dns.google con respaldo en Cloudflare) + doh.ts + resolve-ipv4.ts
 │   │       ├── email_dns/      provider.ts (DoH) + collector.ts/mapper.ts — observaciones de correo → hallazgos
 │   │       ├── hibp/           provider.ts + mapper.ts — brechas agregadas por dominio
 │   │       ├── http/           public-json.ts — cliente HTTP restringido compartido
@@ -169,8 +185,8 @@ Reglas:
 - `apps/web` **no importa** `collectors` ni `ai`: el trabajo pesado, el tráfico a fuentes OSINT y las llaves viven en el worker.
 - Los paquetes exportan TS fuente vía `"exports": { ".": "./src/index.ts" }`. Si la web necesita un paquete nuevo, añádelo a `transpilePackages` en `apps/web/next.config.ts`.
 - `@warden/risk-analysis` contiene contratos/registro/ejecutor y módulos `email` y `credentials`.
-  `credentials` no es un valor de `RiskDomainKey` ni reemplaza `secrets`; su incorporación al KRI
-  requiere una decisión explícita y migraciones. `email_dns` está registrado en `collectAll` y en el
+  `credentials` no es un valor de `RiskDomainKey`; según `docs/scoring-model.md` (regla 7) contará
+  dentro de `secrets` al integrarse, sin agregar un séptimo dominio. `email_dns` está registrado en `collectAll` y en el
   seed (vía `email_dns/collector.ts`); `hibp` sigue sin registrarse.
 
 ---
@@ -191,8 +207,8 @@ Reglas:
                                   │ runScan:                     │      │ crt.sh, ...  │
                                   │  1. collect  (no-contact)    │      └─────────────┘
                                   │  2. persist  (upsert)        │      ┌─────────────┐
-                                  │  3. score    (TODO)          │ ───▶ │ SpiderFoot  │
-                                  │  4. report IA (TODO)         │      └─────────────┘
+                                  │  3. score    (KRI)           │ ───▶ │ SpiderFoot  │
+                                  │  4. alerts + report IA       │      └─────────────┘
                                   └──────────────────────────────┘ ───▶ OpenRouter (redactado)
 ```
 
@@ -204,9 +220,14 @@ Reglas:
    - Marca `running`. Carga la empresa y sus activos **confirmados**.
    - **collect** (`pipeline/collect.ts`): por cada colector registrado, aplica `checkCollector`; registra el resultado en `scan_sources` (`ok | failed | skipped | blocked`). Un colector que falla no tumba el escaneo.
    - **persist** (`pipeline/persist.ts`): activos descubiertos → `assets` con `attribution_status = 'pending'` (un analista los confirma). Hallazgos → upsert en `findings` por `(company_id, fingerprint)` **sin tocar el estado de triage**; fuentes en `finding_sources`.
-   - **score / report:** pendientes (TODO en `run-scan.ts`).
+   - **resolve** (`pipeline/resolve.ts`): cierra hallazgos que su fuente dejó de observar en escaneos exitosos consecutivos.
+   - **score** (`pipeline/score.ts`): `computeScore` con los hallazgos `open` cuyo activo sigue en alcance (sin activo, `confirmed` o `pending` descubierto por una fuente; `onlyInScopeFindings` de `@warden/shared`, el mismo filtro que usan dashboard, reportes y resumen IA) y la versión de pesos del escaneo; solo cuentan los dominios con alguna fuente `ok`. Guarda `scores` (con `excluded_domains`) y `score_domains`.
+   - **alerts** (`pipeline/alerts.ts`): compara la nota con el puntaje anterior y el umbral de `alert_settings`; registra como mucho una alerta `in_app` por escaneo y, con destinatarios en `alert_settings`, su envío por correo en `integration_outbox`. El worker atiende esos envíos cuando no hay escaneos ni resúmenes (`claim_outbox` los aparta 2 min; hasta 5 intentos con espera de 1, 5, 15 y 60 min, luego `failed`). El correo solo lleva notas, KRI y enlace al reporte, nunca evidencia.
+   - **siem** (`pipeline/siem-events.ts`, `pipeline/siem.ts`): con `SPLUNK_HEC_URL`, encola un evento `score` (y `alert` si hubo) en `integration_outbox` (`destination = 'siem'`, ligado a `score_id`) y el worker lo manda a Splunk HEC cuando no hay otro trabajo, con los mismos reintentos que el correo (400/413 de HEC → `failed` directo). Sourcetype `warden:<tipo>`, `event_id` = id del outbox para deduplicar. Solo notas, conteos y enlaces, nunca evidencia.
+   - **report (IA):** `rpc('request_report')` encola `{ score_id }` en `report_requests`. El worker atiende esa cola cuando no hay escaneos (`pipeline/report.ts`) y guarda el resultado en `reports` (`pending` → `draft` o `failed` con `error_message`). Un fallo de la IA nunca tumba el escaneo; la web permite regenerar.
    - Marca `completed` o `failed`.
-4. Tras procesar, `queue_delete`. Si el worker muere, el mensaje reaparece al vencer el timeout; tras 3 intentos (`MAX_ATTEMPTS`) el escaneo se marca `failed`.
+   - **Progreso y cancelación:** durante la recolección el worker guarda `scans.current_source` y `sources_total` (la web muestra "Consultando X · n de N"). Un miembro puede detenerlo con `rpc('cancel_scan')` → `status = 'cancelled'`; el worker lo revisa cada 3 s (`pipeline/cancellation.ts`), aborta las consultas en vuelo y no persiste ni califica resultados parciales. Uno cancelado en cola se descarta al leerlo.
+4. Mientras el escaneo corre, el worker renueva la invisibilidad del mensaje cada tercio del timeout (`queue_set_vt`, `pipeline/visibility.ts`) para que un escaneo largo no se procese dos veces. Tras procesar, `queue_delete`. Si el worker muere (o se apaga), el latido se detiene y el mensaje reaparece al vencer el timeout; tras 3 intentos (`MAX_ATTEMPTS`) el escaneo se marca `failed`. Un mensaje cuyo escaneo ya no existe se descarta.
 
 ### Modelo de datos (resumen)
 
@@ -222,7 +243,7 @@ Fuente de verdad: `supabase/migrations/`. Diagrama ER: [docs/diagrams/warden_er_
 | Resultados | `scores`, `score_domains`, `reports` (guarda `model_used`, `prompt_version`, `context_hash`) |
 | Alertas / integración | `alert_settings`, `alerts`, `integration_outbox` (patrón outbox), `archives` |
 
-Funciones SQL relevantes: `app_role()`, `is_member()`, `is_admin()`, `request_scan()`, `enqueue_due_scans()`, `activate_scoring_weights()` (valida que los pesos sumen 100), `queue_read()`, `queue_delete()`.
+Funciones SQL relevantes: `app_role()`, `is_member()`, `is_admin()`, `request_scan()`, `enqueue_due_scans()`, `activate_scoring_weights()` (valida que los pesos sumen 100), `queue_read()`, `queue_set_vt()`, `queue_delete()`.
 
 ---
 
@@ -275,6 +296,7 @@ Estilo de código:
 - Next 16 usa `src/proxy.ts` (antes `middleware.ts`).
 - Route Handlers: valida el body, delega en una RPC con la sesión del usuario, traduce `42501` a 403.
 - Las formas del dashboard viven en `lib/dashboard-types.ts` (`DashboardData`, `CompanyOverview`, `ExposureHost`, …); `dashboard-data.ts` y `mock-dashboard.ts` producen la misma forma.
+- **Fechas en hora del centro de México (CST, `America/Mexico_City`; sin horario de verano desde 2022)**: muéstralas con `formatDate` / `formatDateTime` de `components/dashboard/format.ts` y captúralas con `toZonedInput` / `zonedInputToIso`. En BD se guardan en UTC (`timestamptz`). El correo de alertas del worker usa la misma zona.
 - Las mutaciones del dashboard son Server Actions en `app/(dashboard)/actions.ts` con la sesión del usuario; RLS decide el permiso (una actualización filtrada por RLS devuelve 0 filas, no error).
 
 ### Base de datos
@@ -305,10 +327,10 @@ Estilo de código:
 ### Cambiar un prompt de IA
 Crear `packages/ai/src/prompts/<nombre>.v(N+1).ts` y cambiar el import. No modificar la versión anterior: `reports.prompt_version` debe reflejar lo que realmente se usó.
 
-### Implementar el scoring (cuando esté definido)
+### Cambiar el scoring
 - Solo funciones puras en `packages/scoring` (sin BD ni red) para poder recalcular históricos.
-- Entrada: `ScoringFinding[]` + `WeightItem[]`; salida: `ScoreResult`.
-- Persistir en `scores` + `score_domains` desde `run-scan.ts` y luego encolar en `report_requests`.
+- Entrada: `ScoringFinding[]` + `WeightItem[]` + dominios con datos; salida: `ScoreResult | null`.
+- Cambiar puntos o pesos = **nueva versión** en `scoring_weights` (no editar una usada por escaneos). Cambiar la fórmula exige actualizar [docs/scoring-model.md](docs/scoring-model.md).
 
 ---
 
@@ -320,7 +342,7 @@ pnpm install
 cp .env.example .env            # completar con las llaves que imprime `pnpm db:start`
 cp .env apps/web/.env.local     # Next.js solo lee variables de su propia carpeta
 pnpm db:start                   # Supabase local (Docker): migraciones + seed
-pnpm db:types                   # regenera packages/db/src/database.types.ts
+pnpm db:types                   # regenera packages/db/src/database.types.ts (la CLI v3 no lo formatea; el script pasa Prettier)
 pnpm dev                        # web (localhost:3000) + worker
 pnpm typecheck                  # tsc en todos los paquetes
 pnpm test                       # vitest
@@ -330,7 +352,7 @@ docker compose -f infra/docker-compose.yml up --build   # worker + SpiderFoot
 
 Para ver el dashboard sin Supabase: `WARDEN_DEV_SKIP_AUTH=true` (la config `web` de `.claude/launch.json` ya lo hace).
 
-Admin local: `supabase/seeds/dev-admin.sql` crea `admin@warden.test` (contraseña en ese archivo) activo y con rol `admin` en cada `pnpm db:start` / `pnpm db:reset`. Solo aplica en local y CI; `supabase db push` no ejecuta seeds.
+Admin local: `supabase/seeds/dev-admin.sql` crea `admin@warden.test` (contraseña en ese archivo) activo y con rol `admin` en cada `pnpm db:start` / `pnpm db:reset`. Solo aplica en local y CI; `supabase db push --remote` no ejecuta seeds.
 
 Primer admin en un entorno real: regístrate y ejecuta
 ```sql
@@ -347,7 +369,12 @@ update public.profiles set role = 'admin', is_active = true where id = '<tu-user
 | `SUPABASE_URL` | worker | URL de Supabase |
 | `SUPABASE_SECRET_KEY` | worker | Service role — **solo worker** |
 | `OPENROUTER_API_KEY`, `OPENROUTER_MODEL` | worker | Resúmenes con IA |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD` | worker | SMTP de la empresa para las alertas; en local, Mailpit (`127.0.0.1:54325`) |
+| `ALERT_EMAIL_FROM`, `WARDEN_WEB_URL` | worker | Remitente de las alertas y URL de la web para el enlace al reporte |
 | `SPIDERFOOT_URL` | worker | API de SpiderFoot |
+| `SPLUNK_HEC_URL`, `SPLUNK_HEC_TOKEN`, `SPLUNK_INDEX` | worker | Splunk HTTP Event Collector (eventos de calificación y alertas); token de la empresa en producción |
+| `ABUSECH_AUTH_KEY` | worker | Auth-Key gratuita de abuse.ch (URLhaus, ThreatFox); cuenta de la empresa |
+| `CERTSPOTTER_API_KEY` | worker | Opcional: llave gratuita de SSLMate para el respaldo Cert Spotter de crt.sh; cuenta de la empresa |
 | `HIBP_API_KEY` | worker | API de brechas; requiere suscripción y dominio previamente verificado en HIBP |
 | `QUEUE_VISIBILITY_TIMEOUT` | worker | Segundos de invisibilidad del mensaje (900) |
 
@@ -396,8 +423,9 @@ Reglas para trabajar con estos módulos:
   módulo `credentials` siguen sin integrarse.
 - **Sin scoring:** los analizadores reportan observaciones (`observed | absent | unknown`) con cobertura `partial`,
   sin puntajes, letras ni severidades. Un fallo de consulta nunca significa ausencia de riesgo.
-- **`credentials` no es un `RiskDomainKey`** ni reemplaza `secrets`; su resultado lleva
-  `riskDomain: null` hasta decidir cómo entra al KRI (ver [docs/sources.md](docs/sources.md)).
+- **`credentials` no es un `RiskDomainKey`**: contará dentro de `secrets` cuando se integre
+  ([docs/scoring-model.md](docs/scoring-model.md), regla 7). Hasta entonces su resultado lleva
+  `riskDomain: null`.
 - **Correo:** solo inspecciona publicación DNS (SPF, DMARC, MX y selectores DKIM conocidos).
   No enumerar selectores DKIM por fuerza bruta.
 - **HIBP:** requiere `HIBP_API_KEY` (solo en el worker) y dominios verificados por la empresa.

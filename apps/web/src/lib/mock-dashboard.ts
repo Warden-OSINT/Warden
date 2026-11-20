@@ -2,9 +2,9 @@
 // (WARDEN_DEV_SKIP_AUTH=true y sin sesión). Con sesión, el dashboard usa datos reales
 // (dashboard-data.ts).
 //
-// Supuesto: puntaje 0–100 (más alto es mejor). El modelo real está pendiente:
-// ver docs/scoring-model.md.
+// Puntajes 0–100 (más alto es mejor) según docs/scoring-model.md; los valores son inventados.
 
+import { gradeFor } from '@warden/shared';
 import {
   DOMAIN_LABELS,
   type AssetRow,
@@ -12,6 +12,7 @@ import {
   type DashboardData,
   type DomainScoreRow,
   type ExposureOverview,
+  type ReputationOverview,
   type SourceStatus,
   type FindingRow,
   type TrendPoint,
@@ -21,23 +22,24 @@ const company: CompanyOverview = {
   id: 'c1',
   name: 'Empresa Ejemplo',
   primaryDomain: 'empresa-ejemplo.mx',
-  score: 81.3,
-  grade: 'B',
-  previousScore: 79.1,
+  score: 79.4,
+  grade: 'C',
+  previousScore: 78.2,
   lastScanAt: '2026-10-06T14:10:00Z',
   nextScanAt: '2026-10-13T14:00:00Z',
   openFindings: 12,
   openCriticalFindings: 1,
 };
 
-// Los pesos vienen del diagrama de arquitectura. El puntaje global es el promedio ponderado.
+// Pesos de la versión 1 (supabase/seed.sql). El puntaje global es el promedio ponderado
+// de los dominios con datos; secrets aparece sin datos para mostrar la cobertura parcial.
 const domainScores: DomainScoreRow[] = [
-  { key: 'exposure', name: DOMAIN_LABELS.exposure, weight: 25, score: 72.0, grade: 'C', findingsCount: 4 },
-  { key: 'email', name: DOMAIN_LABELS.email, weight: 20, score: 78.0, grade: 'C', findingsCount: 3 },
-  { key: 'certs', name: DOMAIN_LABELS.certs, weight: 15, score: 90.0, grade: 'A', findingsCount: 2 },
-  { key: 'secrets', name: DOMAIN_LABELS.secrets, weight: 15, score: 85.0, grade: 'B', findingsCount: 1 },
-  { key: 'reputation', name: DOMAIN_LABELS.reputation, weight: 15, score: 100.0, grade: 'A', findingsCount: 0 },
-  { key: 'impersonation', name: DOMAIN_LABELS.impersonation, weight: 10, score: 64.0, grade: 'D', findingsCount: 2 },
+  { key: 'exposure', name: DOMAIN_LABELS.exposure, weight: 25, score: 72.0, grade: 'C', findingsCount: 4, excluded: false },
+  { key: 'email', name: DOMAIN_LABELS.email, weight: 15, score: 78.0, grade: 'C', findingsCount: 3, excluded: false },
+  { key: 'certs', name: DOMAIN_LABELS.certs, weight: 10, score: 90.0, grade: 'A', findingsCount: 2, excluded: false },
+  { key: 'secrets', name: DOMAIN_LABELS.secrets, weight: 20, score: null, grade: null, findingsCount: 1, excluded: true },
+  { key: 'reputation', name: DOMAIN_LABELS.reputation, weight: 20, score: 92.0, grade: 'A', findingsCount: 1, excluded: false },
+  { key: 'impersonation', name: DOMAIN_LABELS.impersonation, weight: 10, score: 64.0, grade: 'D', findingsCount: 2, excluded: false },
 ];
 
 // Las IPs usan el rango de documentación 203.0.113.0/24 (RFC 5737).
@@ -55,7 +57,7 @@ const assets: AssetRow[] = [
 
 const recentFindings: FindingRow[] = [
   { id: 'f1', indicator: 'RDP (3389) visible en 203.0.113.10', domain: 'exposure', severity: 'critical', confidence: 'high', source: 'SpiderFoot', observedAt: '2026-10-06T14:10:00Z' },
-  { id: 'f2', indicator: 'Dominio parecido: empresa-ejemp1o.mx', domain: 'impersonation', severity: 'high', confidence: 'medium', source: 'dnstwist', observedAt: '2026-10-06T14:10:00Z' },
+  { id: 'f2', indicator: 'Dominio parecido: empresa-ejemp1o.mx', domain: 'impersonation', severity: 'high', confidence: 'medium', source: 'typosquat', observedAt: '2026-10-06T14:10:00Z' },
   { id: 'f3', indicator: 'DMARC con política p=none', domain: 'email', severity: 'medium', confidence: 'high', source: 'DNS público', observedAt: '2026-10-06T14:10:00Z' },
   { id: 'f4', indicator: 'SSH (22) visible en vpn.empresa-ejemplo.mx', domain: 'exposure', severity: 'medium', confidence: 'medium', source: 'SpiderFoot', observedAt: '2026-09-29T14:05:00Z' },
   { id: 'f5', indicator: 'Certificado de portal.empresa-ejemplo.mx vence en 9 días', domain: 'certs', severity: 'low', confidence: 'high', source: 'crt.sh', observedAt: '2026-10-06T14:10:00Z' },
@@ -63,20 +65,22 @@ const recentFindings: FindingRow[] = [
 ];
 
 // KRI de los últimos 12 escaneos semanales.
-const trend: TrendPoint[] = [
-  { scannedAt: '2026-07-21T14:00:00Z', score: 74.0 },
-  { scannedAt: '2026-07-28T14:00:00Z', score: 74.8 },
-  { scannedAt: '2026-08-04T14:00:00Z', score: 74.1 },
-  { scannedAt: '2026-08-11T14:00:00Z', score: 75.9 },
-  { scannedAt: '2026-08-18T14:00:00Z', score: 76.5 },
-  { scannedAt: '2026-08-25T14:00:00Z', score: 76.0 },
-  { scannedAt: '2026-09-01T14:00:00Z', score: 77.4 },
-  { scannedAt: '2026-09-08T14:00:00Z', score: 77.9 },
-  { scannedAt: '2026-09-15T14:00:00Z', score: 78.6 },
-  { scannedAt: '2026-09-22T14:00:00Z', score: 78.2 },
-  { scannedAt: '2026-09-29T14:05:00Z', score: 79.1 },
-  { scannedAt: '2026-10-06T14:10:00Z', score: 81.3 },
-];
+const trend: TrendPoint[] = (
+  [
+    { scannedAt: '2026-07-21T14:00:00Z', score: 74.0 },
+    { scannedAt: '2026-07-28T14:00:00Z', score: 74.8 },
+    { scannedAt: '2026-08-04T14:00:00Z', score: 74.1 },
+    { scannedAt: '2026-08-11T14:00:00Z', score: 75.9 },
+    { scannedAt: '2026-08-18T14:00:00Z', score: 76.5 },
+    { scannedAt: '2026-08-25T14:00:00Z', score: 76.0 },
+    { scannedAt: '2026-09-01T14:00:00Z', score: 77.4 },
+    { scannedAt: '2026-09-08T14:00:00Z', score: 77.9 },
+    { scannedAt: '2026-09-15T14:00:00Z', score: 78.6 },
+    { scannedAt: '2026-09-22T14:00:00Z', score: 78.2 },
+    { scannedAt: '2026-09-29T14:05:00Z', score: 78.2 },
+    { scannedAt: '2026-10-06T14:10:00Z', score: 79.4 },
+  ] satisfies Omit<TrendPoint, 'grade'>[]
+).map((p) => ({ ...p, grade: gradeFor(p.score) }));
 
 const lastRun = (assetsReturned: number, findingsReturned: number) => ({
   status: 'ok' as const,
@@ -90,6 +94,7 @@ const lastRun = (assetsReturned: number, findingsReturned: number) => ({
 const sources: SourceStatus[] = [
   { sourceKey: 'internetdb', name: 'Shodan InternetDB', riskDomain: 'exposure', enabled: true, lastRun: lastRun(3, 4) },
   { sourceKey: 'email_dns', name: 'DNS público (correo)', riskDomain: 'email', enabled: true, lastRun: lastRun(0, 2) },
+  { sourceKey: 'abusech', name: 'abuse.ch', riskDomain: 'reputation', enabled: true, lastRun: lastRun(0, 1) },
   { sourceKey: 'crtsh', name: 'crt.sh', riskDomain: 'certs', enabled: true, lastRun: lastRun(6, 0) },
 ];
 
@@ -119,6 +124,17 @@ const exposure: ExposureOverview = {
   ],
 };
 
+const reputation: ReputationOverview = {
+  source: sources[2]!,
+  subjects: [
+    { subject: '203.0.113.4', type: 'ip', resolvedFrom: ['empresa-ejemplo.mx'], urlhausOnline: 0, urlhausTotal: 2, threatfoxIocs: 0, feodo: 0, blocklists: [] },
+    { subject: 'empresa-ejemplo.mx', type: 'domain', resolvedFrom: [], urlhausOnline: 0, urlhausTotal: 0, threatfoxIocs: 0, feodo: null, blocklists: [] },
+    { subject: 'vpn.empresa-ejemplo.mx', type: 'domain', resolvedFrom: [], urlhausOnline: 0, urlhausTotal: 0, threatfoxIocs: 0, feodo: null, blocklists: [] },
+    { subject: '203.0.113.10', type: 'ip', resolvedFrom: ['vpn.empresa-ejemplo.mx'], urlhausOnline: 0, urlhausTotal: 0, threatfoxIocs: 0, feodo: 0, blocklists: [] },
+  ],
+  findings: [{ id: 'r1', title: '203.0.113.4 distribuyó malware (URLhaus, URLs ya inactivas)', severity: 'medium', subject: '203.0.113.4' }],
+};
+
 export const mockDashboard: DashboardData = {
   mode: 'mock',
   isAdmin: true,
@@ -128,6 +144,7 @@ export const mockDashboard: DashboardData = {
   recentFindings,
   trend,
   exposure,
+  reputation,
   email: {
     source: sources[1]!,
     domains: [{
@@ -142,6 +159,7 @@ export const mockDashboard: DashboardData = {
     findings: [{ id: 'm1', title: 'DMARC de empresa-ejemplo.mx solo monitorea (p=none): no bloquea suplantación', severity: 'low' }],
   },
   sources,
+  latestAlert: null,
   lastScan: {
     id: 's1',
     status: 'completed',
@@ -149,5 +167,7 @@ export const mockDashboard: DashboardData = {
     finishedAt: '2026-10-06T14:10:00Z',
     errorMessage: null,
     sourceFailures: false,
+    startedAt: '2026-10-06T14:00:05Z',
+    progress: { currentSource: null, done: 6, total: 6 },
   },
 };

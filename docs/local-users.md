@@ -20,20 +20,20 @@ verificación de correo y MFA quedan pendientes.
    WARDEN_DEV_SKIP_AUTH=false
    ```
 
-4. Prepara el entorno de la función y levántala en otra terminal:
-
-   ```powershell
-   Copy-Item supabase/functions/.env.example supabase/functions/.env.local
-   npx supabase functions serve manage-users --env-file supabase/functions/.env.local
-   ```
+4. No hace falta levantar la función aparte: `supabase start` sirve
+   `manage-users` y le pasa `WARDEN_LOCAL_USER_ADMIN_ENABLED=true` desde
+   `[edge_runtime.secrets]` en `supabase/config.toml` (solo aplica en local).
+   Si Supabase ya estaba corriendo antes de traer esta función, reinícialo con
+   `npx supabase stop` y `pnpm db:start` (los datos se conservan).
 
    Supabase inyecta automáticamente `SUPABASE_URL` y
    `SUPABASE_SERVICE_ROLE_KEY` en su runtime de funciones. No copies esa llave a
-   Next.js. `WARDEN_LOCAL_USER_ADMIN_ENABLED=true` es exclusivo del entorno local.
+   Next.js. Para depurar con recarga en caliente puedes seguir usando
+   `npx supabase functions serve manage-users --env-file supabase/functions/.env.local`
+   (copiando antes `supabase/functions/.env.example`).
 
 5. Ejecuta `pnpm --filter @warden/web dev`. Entra con `admin@warden.test` y la
-   contraseña de desarrollo `warden-dev-admin`, y abre Configuración → Administrar
-   usuarios y contraseñas.
+   contraseña de desarrollo `warden-dev-admin`, y abre Configuración → Usuarios → Administrar.
 6. Crea una cuenta, actívala explícitamente en el listado, cierra sesión y comprueba
    el ingreso con las nuevas credenciales. Comprueba también que un analista no
    puede acceder a la administración y que desactivarlo retira su acceso a los
@@ -57,7 +57,7 @@ recrear la base local.
   una acción independiente. No puedes quitarte el rol admin ni desactivarte.
 - El login comprueba `is_active` después de autenticar y cierra la sesión si la
   cuenta todavía no está habilitada.
-- Las contraseñas requieren 12 caracteres y como máximo 72 bytes. No se guardan
+- Las contraseñas requieren 6 caracteres y como máximo 72 bytes. No se guardan
   en perfiles, logs ni auditoría ni se devuelven al navegador. Se envían a Auth
   para su almacenamiento mediante hash.
 - La auditoría registra actor, acción e id de usuario. Un fallo de auditoría

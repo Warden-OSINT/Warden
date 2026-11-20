@@ -38,7 +38,7 @@ export const emailDnsCollector: Collector = {
         .filter((o) => /^email\.(spf|dmarc|mx)\.records$/.test(o.ruleId) && o.state === 'unknown')
         .map((o) => o.ruleId.split('.')[1]!.toUpperCase());
       if (unknown.length > 0) {
-        throw new Error(`dns.google no respondió ${unknown.join(', ')} de ${domain}`);
+        throw new Error(`El DNS público (dns.google y Cloudflare) no respondió ${unknown.join(', ')} de ${domain}`);
       }
 
       const mapped = mapEmailAnalysis(analysis, observedAt);

@@ -45,8 +45,8 @@ function parseCommand(value: unknown): UserCommand {
   }
   if (input.action === 'create' || input.action === 'password') {
     // bcrypt limita la entrada a 72 bytes: no aceptar contraseñas que se truncarían.
-    if (typeof input.password !== 'string' || input.password.length < 12 || new TextEncoder().encode(input.password).length > 72) {
-      throw new UserAdminError(400, 'La contraseña debe tener al menos 12 caracteres y como máximo 72 bytes');
+    if (typeof input.password !== 'string' || input.password.length < 6 || new TextEncoder().encode(input.password).length > 72) {
+      throw new UserAdminError(400, 'La contraseña debe tener al menos 6 caracteres y como máximo 72 bytes');
     }
     if (input.action === 'password') return { action: 'password', id, password: input.password };
   }

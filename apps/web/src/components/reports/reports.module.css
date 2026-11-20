@@ -1,0 +1,156 @@
+.reportHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.kri {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.kriValue {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 700;
+}
+
+.kriMeta {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.severityRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.aiPlaceholder {
+  margin: 0;
+  padding: 12px;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.aiBody {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.aiText {
+  margin: 0;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.aiHeading {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.aiList {
+  margin: 0;
+  padding-left: 20px;
+  line-height: 1.6;
+}
+
+.alertList {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+}
+
+.headerSide {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  max-width: 380px;
+}
+
+.sourceChips {
+  margin-top: 14px;
+}
+
+/* Lista de dominios seleccionable */
+.domainPicker {
+  gap: 4px;
+}
+
+.domainButton {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.domainButton:hover {
+  background: var(--surface-2);
+}
+
+.domainButton:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.block {
+  display: block;
+}
+
+.domainSelected {
+  background: var(--surface-2);
+  border-color: var(--border);
+}
+
+.panelTitle {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.findingsScroll {
+  max-height: 520px;
+  overflow-y: auto;
+}
+
+/* Impresión / "Guardar como PDF": fondo claro, sin navegación ni botones. */
+@media print {
+  :global(nav),
+  .noPrint {
+    display: none !important;
+  }
+
+  :global(body) {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  .printable :global(section) {
+    break-inside: avoid;
+    background: #fff !important;
+    border-color: #ccc !important;
+    color: #000 !important;
+  }
+
+  .printable * {
+    color: #000 !important;
+  }
+}

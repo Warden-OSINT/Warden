@@ -1,111 +1,338 @@
 'use client';
 
 import Link from 'next/link';
-import { useActionState, useEffect, useRef, useState, useTransition } from 'react';
-import { changeUserPassword, createUser, loadUsers, updateUser, type UserActionResult } from '@/app/(dashboard)/settings/users/actions';
+import {
+  startTransition,
+  useActionState,
+  useEffect,
+  useRef,
+  useState,
+  useTransition,
+  type FormEvent,
+} from 'react';
+import {
+  changeUserPassword,
+  createUser,
+  loadUsers,
+  updateUser,
+  type UserActionResult,
+} from '@/app/(dashboard)/settings/users/actions';
+import dashboard from '@/components/dashboard/dashboard.module.css';
+import { displayIdentifier } from '@/lib/local-user';
 import type { ManagedUser } from '../../../../../supabase/functions/manage-users/handler';
 import styles from './users.module.css';
 
-function Feedback({ state }: { state: UserActionResult }) {
-  return <div aria-live="polite">
-    {state.error && <p className={styles.error} role="alert">{state.error}</p>}
-    {state.message && <p className={styles.success}>{state.message}</p>}
-    {state.warning && <p className={styles.error}>{state.warning}</p>}
-  </div>;
+type FormAction = (previous: UserActionResult, form: FormData) => Promise<UserActionResult>;
+
+const ROLE_LABEL = { admin: 'Administrador', analyst: 'Analista' } as const;
+
+// React 19 vacía el formulario al terminar una acción aunque devuelva error; enviar
+// con onSubmit evita perder lo escrito y solo limpiamos cuando la acción tuvo éxito.
+function useFormAction(action: FormAction, resetOnSuccess: boolean) {
+  const [state, dispatch, pending] = useActionState(action, {});
+  const formRef = useRef<HTMLFormElement>(null);
+  useEffect(() => {
+    if (resetOnSuccess && state.message) formRef.current?.reset();
+  }, [state, resetOnSuccess]);
+  function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    startTransition(() => dispatch(form));
+  }
+  return { state, pending, formRef, onSubmit };
 }
 
-function PasswordFields({ prefix }: { prefix: string }) {
-  return <>
-    <label>Contraseña<input id={`${prefix}-password`} name="password" type="password" autoComplete="new-password" required minLength={12} maxLength={72} /></label>
-    <label>Confirmar contraseña<input name="confirmPassword" type="password" autoComplete="new-password" required minLength={12} maxLength={72} /></label>
-  </>;
+function Feedback({ state }: { state: UserActionResult }) {
+  return (
+    <div aria-live="polite">
+      {state.error && <p className={`${styles.feedback} ${styles.error}`} role="alert">{state.error}</p>}
+      {state.message && <p className={`${styles.feedback} ${styles.success}`}>{state.message}</p>}
+      {state.warning && <p className={`${styles.feedback} ${styles.warning}`}>{state.warning}</p>}
+    </div>
+  );
+}
+
+function PasswordFields() {
+  return (
+    <div className={styles.formRow}>
+      <label className={styles.field}>
+        Contraseña
+        <input name="password" type="password" autoComplete="new-password" required minLength={6} maxLength={72} />
+      </label>
+      <label className={styles.field}>
+        Confirmar
+        <input name="confirmPassword" type="password" autoComplete="new-password" required minLength={6} maxLength={72} />
+      </label>
+    </div>
+  );
+}
+
+function RoleSelect({ defaultValue, disabled }: { defaultValue: ManagedUser['role']; disabled?: boolean }) {
+  return (
+    <select name="role" defaultValue={defaultValue} disabled={disabled}>
+      <option value="analyst">{ROLE_LABEL.analyst}</option>
+      <option value="admin">{ROLE_LABEL.admin}</option>
+    </select>
+  );
 }
 
 function CreateUserForm() {
-  const [state, action, pending] = useActionState(createUser, {});
-  const formRef = useRef<HTMLFormElement>(null);
-  useEffect(() => { if (state.message) formRef.current?.reset(); }, [state]);
-  return <section className={styles.card}>
-    <h2>Crear usuario</h2>
-    <p className={styles.muted}>Usa un nombre como analista, sin correo real. Las cuentas nuevas quedan inactivas hasta que las habilites.</p>
-    <form ref={formRef} action={action}>
-      <fieldset disabled={pending} className={styles.form}>
-        <label>Nombre completo<input name="fullName" required maxLength={120} autoComplete="off" /></label>
-        <label>Usuario o correo de acceso<input name="email" type="text" required maxLength={254} autoComplete="off" placeholder="analista" /></label>
-        <label>Rol<select name="role" defaultValue="analyst"><option value="analyst">Analista</option><option value="admin">Administrador</option></select></label>
-        <PasswordFields prefix="create" />
-        <p className={styles.muted}>Usa al menos 12 caracteres (máximo 72 bytes).</p>
-        <button type="submit">{pending ? 'Creando…' : 'Crear usuario'}</button>
-      </fieldset>
-      <Feedback state={state} />
-    </form>
-  </section>;
-}
-
-function UserCard({ user, currentUserId }: { user: ManagedUser; currentUserId: string }) {
-  const [state, action, pending] = useActionState(updateUser, {});
-  const [passwordState, passwordAction, passwordPending] = useActionState(changeUserPassword, {});
-  const passwordForm = useRef<HTMLFormElement>(null);
-  const isSelf = user.id === currentUserId;
-  useEffect(() => { if (passwordState.message) passwordForm.current?.reset(); }, [passwordState]);
-  return <article className={styles.card}>
-    <div className={styles.userHeading}><h3>{user.email.endsWith('@warden.test') ? user.email.slice(0, -12) : user.email}</h3><span className={user.isActive ? styles.active : styles.inactive}>{user.isActive ? 'Activo' : 'Inactivo'}</span></div>
-    <p className={styles.muted}>{isSelf ? 'Tu cuenta · ' : ''}Creado el {new Date(user.createdAt).toLocaleDateString('es-MX')}</p>
-    <form action={action}>
-      <input type="hidden" name="id" value={user.id} />
-      <fieldset disabled={pending} className={styles.form}>
-        <label>Nombre completo<input name="fullName" defaultValue={user.fullName} required maxLength={120} /></label>
-        <label>Rol<select name="role" defaultValue={user.role} disabled={isSelf}><option value="analyst">Analista</option><option value="admin">Administrador</option></select></label>
-        {isSelf && <input type="hidden" name="role" value="admin" />}
-        <label className={styles.checkbox}><input name="isActive" type="checkbox" defaultChecked={user.isActive} disabled={isSelf} />Acceso activo</label>
-        {isSelf && <input type="hidden" name="isActive" value="on" />}
-        <button type="submit">{pending ? 'Guardando…' : 'Guardar cambios'}</button>
-      </fieldset>
-      <Feedback state={state} />
-    </form>
-    <details className={styles.passwordDetails}>
-      <summary>Cambiar contraseña</summary>
-      <form ref={passwordForm} action={passwordAction}>
-        <input type="hidden" name="id" value={user.id} />
-        <fieldset disabled={passwordPending} className={styles.form}>
-          <PasswordFields prefix={user.id} />
-          <button type="submit">{passwordPending ? 'Actualizando…' : 'Actualizar contraseña'}</button>
+  const { state, pending, formRef, onSubmit } = useFormAction(createUser, true);
+  return (
+    <section className={dashboard.card}>
+      <div className={dashboard.cardHeader}>
+        <div>
+          <h2 className={dashboard.cardTitle}>Nuevo usuario</h2>
+          <p className={dashboard.cardHint}>Queda inactivo hasta que lo actives en la lista.</p>
+        </div>
+      </div>
+      <form ref={formRef} onSubmit={onSubmit}>
+        <fieldset disabled={pending} className={styles.form}>
+          <label className={styles.field}>
+            Nombre completo
+            <input name="fullName" required maxLength={120} autoComplete="off" />
+          </label>
+          <label className={styles.field}>
+            Usuario
+            <input name="email" required maxLength={254} autoComplete="off" placeholder="analista" />
+            <span className={styles.fieldHint}>3–32 letras, números, puntos o guiones. También acepta un correo.</span>
+          </label>
+          <label className={styles.field}>
+            Rol
+            <RoleSelect defaultValue="analyst" />
+          </label>
+          <PasswordFields />
+          <span className={styles.fieldHint}>Mínimo 6 caracteres.</span>
+          <button type="submit" className={dashboard.button}>
+            {pending ? 'Creando…' : 'Crear usuario'}
+          </button>
+          <Feedback state={state} />
         </fieldset>
-        <Feedback state={passwordState} />
       </form>
-    </details>
-  </article>;
+    </section>
+  );
 }
 
-export function UserManagement({ currentUserId, initialUsers, initialHasMore, initialError }: {
-  currentUserId: string; initialUsers: ManagedUser[]; initialHasMore: boolean; initialError?: string;
+function ActiveToggle({ user }: { user: ManagedUser }) {
+  const { state, pending, onSubmit } = useFormAction(updateUser, false);
+  return (
+    <form onSubmit={onSubmit} title={state.error}>
+      <input type="hidden" name="id" value={user.id} />
+      <input type="hidden" name="fullName" value={user.fullName} />
+      <input type="hidden" name="role" value={user.role} />
+      {!user.isActive && <input type="hidden" name="isActive" value="on" />}
+      <button type="submit" className={user.isActive ? dashboard.buttonGhost : dashboard.button} disabled={pending}>
+        {pending ? '…' : user.isActive ? 'Desactivar' : 'Activar'}
+      </button>
+    </form>
+  );
+}
+
+function EditPanel({ user, isSelf }: { user: ManagedUser; isSelf: boolean }) {
+  const profile = useFormAction(updateUser, false);
+  const password = useFormAction(changeUserPassword, true);
+  return (
+    <div className={styles.editPanel}>
+      <form onSubmit={profile.onSubmit}>
+        <h3 className={styles.editTitle}>Perfil</h3>
+        <input type="hidden" name="id" value={user.id} />
+        <fieldset disabled={profile.pending} className={styles.form}>
+          <label className={styles.field}>
+            Nombre completo
+            <input name="fullName" defaultValue={user.fullName} required maxLength={120} />
+          </label>
+          <label className={styles.field}>
+            Rol
+            <RoleSelect defaultValue={user.role} disabled={isSelf} />
+            {isSelf && <span className={styles.fieldHint}>No puedes cambiar tu propio rol.</span>}
+          </label>
+          {/* Un select o checkbox deshabilitado no se envía: mandar el valor fijo. */}
+          {isSelf && <input type="hidden" name="role" value="admin" />}
+          {isSelf ? (
+            <input type="hidden" name="isActive" value="on" />
+          ) : (
+            <label className={styles.checkbox}>
+              <input name="isActive" type="checkbox" defaultChecked={user.isActive} />
+              Acceso activo
+            </label>
+          )}
+          <div className={styles.formActions}>
+            <button type="submit" className={dashboard.button}>
+              {profile.pending ? 'Guardando…' : 'Guardar'}
+            </button>
+          </div>
+          <Feedback state={profile.state} />
+        </fieldset>
+      </form>
+      <form ref={password.formRef} onSubmit={password.onSubmit}>
+        <h3 className={styles.editTitle}>Contraseña</h3>
+        <input type="hidden" name="id" value={user.id} />
+        <fieldset disabled={password.pending} className={styles.form}>
+          <PasswordFields />
+          <div className={styles.formActions}>
+            <button type="submit" className={dashboard.buttonGhost}>
+              {password.pending ? 'Actualizando…' : 'Cambiar contraseña'}
+            </button>
+          </div>
+          <Feedback state={password.state} />
+        </fieldset>
+      </form>
+    </div>
+  );
+}
+
+function UserRows({ user, isSelf }: { user: ManagedUser; isSelf: boolean }) {
+  const [editing, setEditing] = useState(false);
+  return (
+    <>
+      <tr>
+        <td>
+          <span className={styles.userName}>{displayIdentifier(user.email)}</span>
+          {isSelf && <span className={styles.you}>Tú</span>}
+        </td>
+        <td>{user.fullName || <span className={dashboard.muted}>—</span>}</td>
+        <td>{ROLE_LABEL[user.role]}</td>
+        <td>
+          <span className={`${dashboard.pill} ${user.isActive ? styles.active : styles.inactive}`}>
+            {user.isActive ? 'Activo' : 'Inactivo'}
+          </span>
+        </td>
+        <td className={dashboard.muted}>{new Date(user.createdAt).toLocaleDateString('es-MX')}</td>
+        <td>
+          <div className={styles.actions}>
+            {!isSelf && <ActiveToggle user={user} />}
+            <button
+              type="button"
+              className={dashboard.buttonGhost}
+              aria-expanded={editing}
+              onClick={() => setEditing((value) => !value)}
+            >
+              {editing ? 'Cerrar' : 'Editar'}
+            </button>
+          </div>
+        </td>
+      </tr>
+      {editing && (
+        <tr className={styles.editRow}>
+          <td colSpan={6}>
+            <EditPanel user={user} isSelf={isSelf} />
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+export function UserManagement({
+  currentUserId,
+  initialUsers,
+  initialHasMore,
+  initialError,
+}: {
+  currentUserId: string;
+  initialUsers: ManagedUser[];
+  initialHasMore: boolean;
+  initialError?: string;
 }) {
   const [users, setUsers] = useState(initialUsers);
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [page, setPage] = useState(1);
   const [error, setError] = useState(initialError);
-  const [pending, startTransition] = useTransition();
-  useEffect(() => { setUsers(initialUsers); setHasMore(initialHasMore); setPage(1); setError(initialError); }, [initialUsers, initialHasMore, initialError]);
+  const [pending, startLoading] = useTransition();
+
+  // Las acciones revalidan la ruta: el servidor manda la lista nueva como props.
+  useEffect(() => {
+    setUsers(initialUsers);
+    setHasMore(initialHasMore);
+    setPage(1);
+    setError(initialError);
+  }, [initialUsers, initialHasMore, initialError]);
+
   function navigate(nextPage: number) {
-    startTransition(async () => {
+    startLoading(async () => {
       const result = await loadUsers(nextPage);
       setError(result.error);
-      if (!result.error) { setUsers(result.users ?? []); setHasMore(result.hasMore ?? false); setPage(nextPage); }
+      if (!result.error) {
+        setUsers(result.users ?? []);
+        setHasMore(result.hasMore ?? false);
+        setPage(nextPage);
+      }
     });
   }
-  return <div className={styles.page}>
-    <header><Link href="/settings">Configuración</Link><h1>Administración de usuarios</h1>
-      <p className={styles.muted}>Cuentas locales con contraseña. La verificación por correo y MFA quedan pendientes.</p></header>
-    {error && <p className={styles.error} role="alert">{error}</p>}
-    <div className={styles.layout}>
-      <CreateUserForm />
-      <section className={styles.list} aria-label="Usuarios registrados">
-        <div className={styles.userHeading}><h2>Usuarios registrados</h2><button disabled={pending} onClick={() => navigate(page)}>Actualizar</button></div>
-        {users.length === 0 && !error && <p>No hay usuarios en esta página.</p>}
-        {users.map((user) => <UserCard key={`${user.id}-${user.fullName}-${user.role}-${user.isActive}`} user={user} currentUserId={currentUserId} />)}
-        <div className={styles.pagination}><button disabled={pending || page === 1} onClick={() => navigate(page - 1)}>Anterior</button>
-          <span>Página {page}</span><button disabled={pending || !hasMore} onClick={() => navigate(page + 1)}>Siguiente</button></div>
-      </section>
+
+  return (
+    <div className={dashboard.page}>
+      <div>
+        <Link href="/settings" className={styles.back}>
+          ← Configuración
+        </Link>
+        <h1 className={dashboard.pageTitle}>Usuarios</h1>
+        <p className={dashboard.subtitle}>Cuentas locales con contraseña. Verificación por correo y MFA pendientes.</p>
+      </div>
+
+      {error && <p className={`${styles.feedback} ${styles.error}`} role="alert">{error}</p>}
+
+      <div className={styles.layout}>
+        <CreateUserForm />
+        <section className={dashboard.card} aria-label="Usuarios registrados">
+          <div className={dashboard.cardHeader}>
+            <div>
+              <h2 className={dashboard.cardTitle}>Usuarios registrados</h2>
+              <p className={dashboard.cardHint}>
+                {users.length} {users.length === 1 ? 'usuario' : 'usuarios'}
+                {page > 1 ? ` en la página ${page}` : ''}
+              </p>
+            </div>
+            <button type="button" className={dashboard.buttonGhost} disabled={pending} onClick={() => navigate(page)}>
+              {pending ? 'Cargando…' : 'Actualizar'}
+            </button>
+          </div>
+          {users.length === 0 ? (
+            <p className={dashboard.empty}>{error ? 'No se pudo cargar la lista.' : 'No hay usuarios en esta página.'}</p>
+          ) : (
+            <div className={dashboard.tableWrap}>
+              <table className={dashboard.table}>
+                <thead>
+                  <tr>
+                    <th>Usuario</th>
+                    <th>Nombre</th>
+                    <th>Rol</th>
+                    <th>Estado</th>
+                    <th>Creado</th>
+                    <th aria-label="Acciones" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((user) => (
+                    <UserRows key={user.id} user={user} isSelf={user.id === currentUserId} />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {(page > 1 || hasMore) && (
+            <div className={styles.pagination}>
+              <button
+                type="button"
+                className={dashboard.buttonGhost}
+                disabled={pending || page === 1}
+                onClick={() => navigate(page - 1)}
+              >
+                Anterior
+              </button>
+              <span>Página {page}</span>
+              <button
+                type="button"
+                className={dashboard.buttonGhost}
+                disabled={pending || !hasMore}
+                onClick={() => navigate(page + 1)}
+              >
+                Siguiente
+              </button>
+            </div>
+          )}
+        </section>
+      </div>
     </div>
-  </div>;
+  );
 }

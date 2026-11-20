@@ -1,9 +1,11 @@
 import { Fragment } from 'react';
 import { formatDateTime } from '@/components/dashboard/format';
 import styles from '@/components/dashboard/dashboard.module.css';
+import { GradeBadge } from '@/components/dashboard/grade-badge';
 import { scanDisplayStatus, SOURCE_RUN_COLORS, SOURCE_RUN_LABELS } from '@/components/dashboard/scan-status';
 import { isSourceFailure } from '@/lib/dashboard-data';
-import type { ScanHistoryRow, ScanSourceRun } from '@/lib/scan-history';
+import { DOMAIN_LABELS } from '@/lib/dashboard-types';
+import type { ScanHistoryRow, ScanScore, ScanSourceRun } from '@/lib/scan-history';
 
 export function ScanHistoryTable({ scans }: { scans: ScanHistoryRow[] }) {
   const withFailures = scans.filter(hasFailures).length;
@@ -34,6 +36,7 @@ export function ScanHistoryTable({ scans }: { scans: ScanHistoryRow[] }) {
                 <th>Solicitado</th>
                 <th>Origen</th>
                 <th>Estado</th>
+                <th>KRI</th>
                 <th>Duración</th>
                 <th>Fuentes</th>
               </tr>
@@ -57,6 +60,7 @@ export function ScanHistoryTable({ scans }: { scans: ScanHistoryRow[] }) {
                           {status.label}
                         </span>
                       </td>
+                      <td>{s.score ? <ScoreCell score={s.score} /> : <span className={styles.muted}>—</span>}</td>
                       <td className={styles.muted}>{duration(s.startedAt, s.finishedAt)}</td>
                       <td>
                         <span className={styles.tagList}>
@@ -70,13 +74,20 @@ export function ScanHistoryTable({ scans }: { scans: ScanHistoryRow[] }) {
                               {r.name} · {r.status === 'ok' ? runSummary(r) : SOURCE_RUN_LABELS[r.status]}
                             </span>
                           ))}
-                          {s.sources.length === 0 && <span className={styles.muted}>—</span>}
+                          {s.status === 'running' && (
+                            <span className={styles.tag} style={{ color: 'var(--accent)' }}>
+                              <span className={styles.spinner} aria-hidden />{' '}
+                              {s.currentSource ? `Consultando ${s.currentSource}…` : 'Preparando…'}
+                              {s.sourcesTotal ? ` (${s.sources.length}/${s.sourcesTotal})` : ''}
+                            </span>
+                          )}
+                          {s.sources.length === 0 && s.status !== 'running' && <span className={styles.muted}>—</span>}
                         </span>
                       </td>
                     </tr>
                     {errors.length > 0 && (
                       <tr className={styles.detailRow}>
-                        <td colSpan={5}>
+                        <td colSpan={6}>
                           {errors.map((e) => (
                             <div key={e.key}>
                               <strong>{e.label}:</strong> {e.message}
@@ -93,6 +104,26 @@ export function ScanHistoryTable({ scans }: { scans: ScanHistoryRow[] }) {
         </div>
       )}
     </section>
+  );
+}
+
+/** Nota, puntaje y variación; el detalle por dominio va en el tooltip. */
+function ScoreCell({ score }: { score: ScanScore }) {
+  const detail = [
+    ...score.domains.map((d) => `${DOMAIN_LABELS[d.key]}: ${d.grade} (${d.score.toFixed(1)})`),
+    ...score.excludedDomains.map((key) => `${DOMAIN_LABELS[key]}: sin datos`),
+  ].join('\n');
+  return (
+    <span title={detail} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
+      <GradeBadge grade={score.grade} />
+      <span>{score.score.toFixed(1)}</span>
+      {score.delta !== null && score.delta !== 0 && (
+        <span className={styles.muted} style={{ color: score.delta > 0 ? 'var(--grade-a)' : 'var(--grade-f)' }}>
+          {score.delta > 0 ? '▲' : '▼'} {Math.abs(score.delta).toFixed(1)}
+        </span>
+      )}
+      {score.excludedDomains.length > 0 && <span className={styles.muted}>· parcial</span>}
+    </span>
   );
 }
 

@@ -7,6 +7,7 @@ export const SCAN_STATUS_LABELS: Record<ScanStatus, string> = {
   running: 'En curso',
   completed: 'Completado',
   failed: 'Falló',
+  cancelled: 'Cancelado',
 };
 
 export const SCAN_STATUS_COLORS: Record<ScanStatus, string> = {
@@ -14,6 +15,7 @@ export const SCAN_STATUS_COLORS: Record<ScanStatus, string> = {
   running: 'var(--accent)',
   completed: 'var(--grade-a)',
   failed: 'var(--grade-f)',
+  cancelled: 'var(--muted)',
 };
 
 export const SOURCE_RUN_LABELS: Record<ScanSourceStatus, string> = {

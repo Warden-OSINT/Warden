@@ -8,7 +8,10 @@ import { SourceToggle } from './source-toggle';
 const SOURCE_HINTS: Record<string, string> = {
   internetdb: 'Puertos y CVE por IP · uso gratuito solo no comercial',
   email_dns: 'SPF, DMARC y MX publicados',
-  crtsh: 'Descubre subdominios en logs de certificados; quedan "Por confirmar" en Activos',
+  abusech: 'Malware, IOC y botnets (URLhaus, ThreatFox, Feodo) · requiere ABUSECH_AUTH_KEY en el worker',
+  crtsh: 'Subdominios (quedan "Por confirmar" en Activos), comodines, vencimientos y CAA',
+  typosquat: 'Dominios parecidos registrados por terceros, consultados solo vía dns.google',
+  gitleaks: 'Secretos en repos públicos de las organizaciones de código confirmadas en Activos · requiere git y gitleaks en el worker',
 };
 
 export function SourcesCard({ sources, isAdmin }: { sources: SourceStatus[]; isAdmin: boolean }) {
