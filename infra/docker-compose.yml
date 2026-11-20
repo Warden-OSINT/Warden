@@ -23,5 +23,27 @@ services:
       - spiderfoot-data:/var/lib/spiderfoot
     restart: unless-stopped
 
+  splunk:
+    # Splunk local solo para demo de la integración SIEM (no arranca por defecto):
+    #   docker compose --env-file .env -f infra/docker-compose.yml --profile splunk up -d splunk
+    # Requiere en .env SPLUNK_PASSWORD, SPLUNK_HEC_TOKEN y aceptar licencia y términos
+    # (SPLUNK_START_ARGS, SPLUNK_GENERAL_TERMS). Web en http://localhost:8000 (usuario admin).
+    image: splunk/splunk:latest
+    profiles: [splunk]
+    environment:
+      SPLUNK_PASSWORD: ${SPLUNK_PASSWORD:?define SPLUNK_PASSWORD en .env}
+      SPLUNK_HEC_TOKEN: ${SPLUNK_HEC_TOKEN:?define SPLUNK_HEC_TOKEN en .env}
+      SPLUNK_START_ARGS: ${SPLUNK_START_ARGS:-}
+      SPLUNK_GENERAL_TERMS: ${SPLUNK_GENERAL_TERMS:-}
+      # HEC sin TLS solo en local; en producción la empresa usa https.
+      SPLUNK_HEC_SSL: "false"
+    ports:
+      - "8000:8000"
+      - "8088:8088"
+    volumes:
+      - splunk-var:/opt/splunk/var
+    restart: unless-stopped
+
 volumes:
   spiderfoot-data:
+  splunk-var:

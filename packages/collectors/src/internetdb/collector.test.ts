@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { isPublicIpv4 } from '../dns/resolve-ipv4';
 import type { CollectorTarget } from '../types';
 import { internetdbCollector } from './collector';
+import { resetResolverHealth } from '../dns/resolver';
 
 const ctx = { signal: new AbortController().signal, getSecret: () => undefined };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
@@ -13,7 +14,11 @@ const target: CollectorTarget = {
     { type: 'ip', value: '198.51.100.7' },
   ],
 };
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  // El resolvedor recuerda cuál se cayó: sin esto un test afectaría al siguiente.
+  resetResolverHealth();
+});
 
 describe('isPublicIpv4', () => {
   it('descarta rangos privados y reservados', () => {
@@ -73,8 +78,9 @@ describe('internetdbCollector', () => {
   it('falla si ninguna consulta DNS responde, aunque haya IPs confirmadas', async () => {
     const fetchMock = vi.fn(async (_url: URL) => json({}, 503));
     vi.stubGlobal('fetch', fetchMock);
-    await expect(internetdbCollector.collect(target, ctx)).rejects.toThrow(/dns.google/);
-    expect(fetchMock.mock.calls.every(([url]) => url.hostname === 'dns.google')).toBe(true);
+    await expect(internetdbCollector.collect(target, ctx)).rejects.toThrow(/DNS público/);
+    // Prueba los dos resolvedores públicos y nada más (ni InternetDB sin IPs resueltas).
+    expect(new Set(fetchMock.mock.calls.map(([url]) => url.hostname))).toEqual(new Set(['dns.google', 'cloudflare-dns.com']));
   });
 
   it('falla si ninguna consulta a InternetDB responde', async () => {

@@ -1,11 +1,11 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import styles from './top-nav.module.css';
 
-// Dashboard, Escaneos y Configuración (usuarios locales) existen; el resto está pendiente.
 const NAV = [
   { href: '/', label: 'Dashboard' },
   { href: '/assets', label: 'Activos' },
@@ -31,7 +31,13 @@ export function TopNav() {
 
   return (
     <nav className={styles.nav}>
-      <span className={styles.brand}>Warden</span>
+      <Link href="/" className={styles.brand}>
+        {/* El PNG trae mucho margen alrededor del dibujo: el recorte lo ajusta al alto de la barra. */}
+        <span className={styles.logoCrop} aria-hidden>
+          <Image src="/logoWarden.png" alt="" width={48} height={48} className={styles.logo} priority />
+        </span>
+        Warden
+      </Link>
       <ul className={styles.tabs}>
         {NAV.map((item) => {
           const active = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);

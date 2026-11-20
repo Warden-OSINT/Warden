@@ -1,0 +1,136 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#111"/>
+    </marker>
+    <style>
+      text { font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; fill: #111; }
+      .title { font-family: Georgia, 'Times New Roman', serif; font-size: 50px; }
+      .h { font-size: 20px; font-weight: 700; text-anchor: middle; }
+      .s { font-size: 14px; text-anchor: middle; }
+      .w { fill: #fff; }
+      .lbl { font-size: 14px; fill: #333; }
+      .box-lbl { font-size: 19px; font-weight: 700; }
+      .note { font-size: 14px; font-style: italic; fill: #555; text-anchor: middle; }
+      .line { stroke: #111; stroke-width: 4; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    </style>
+  </defs>
+
+  <rect width="1600" height="1000" fill="#f6f2ee"/>
+
+  <!-- Título -->
+  <text class="title" x="40" y="120">Diagrama de</text>
+  <text class="title" x="40" y="190">Arquitectura de</text>
+  <text class="title" x="40" y="260">Integración</text>
+  <text class="lbl" x="42" y="310" style="font-size:16px">Warden · solo información pasiva (OSINT)</text>
+
+  <!-- Fila 1: Portal web y Supabase -->
+  <rect x="520" y="60" width="300" height="72" rx="36" fill="#8b5cf6"/>
+  <text class="h w" x="670" y="92">Portal web</text>
+  <text class="s w" x="670" y="116">Next.js · dashboard y reportes</text>
+
+  <rect x="1000" y="60" width="460" height="72" rx="36" fill="#8b5cf6"/>
+  <text class="h w" x="1230" y="92">Supabase</text>
+  <text class="s w" x="1230" y="116">Postgres · Auth · colas pgmq · pg_cron</text>
+
+  <path class="line" d="M828,96 L992,96" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+  <text class="lbl" x="910" y="84" text-anchor="middle">solicita escaneos</text>
+  <text class="lbl" x="910" y="118" text-anchor="middle">lee con RLS</text>
+
+  <!-- Supabase <-> Worker -->
+  <path class="line" d="M1120,136 L1120,194" marker-end="url(#arrow)"/>
+  <text class="lbl" x="1108" y="171" text-anchor="end">lee colas de escaneos y resúmenes</text>
+  <path class="line" d="M1360,194 L1360,136" marker-end="url(#arrow)"/>
+  <text class="lbl" x="1372" y="171">guarda hallazgos, notas, reportes</text>
+
+  <!-- Worker -->
+  <rect x="470" y="200" width="1090" height="360" rx="28" fill="#fbf8f5" stroke="#111" stroke-width="3"/>
+  <text class="box-lbl" x="495" y="232">Worker <tspan style="font-weight:400;font-size:15px">· contenedor fuera de Supabase</tspan></text>
+
+  <!-- Fila A -->
+  <rect x="500" y="250" width="300" height="70" rx="35" fill="#c2e3d8"/>
+  <text class="h" x="650" y="281">1 · Compuerta no-contact</text>
+  <text class="s" x="650" y="304">código + BD deben coincidir</text>
+
+  <rect x="860" y="250" width="300" height="70" rx="35" fill="#c2e3d8"/>
+  <text class="h" x="1010" y="281">2 · Colectores</text>
+  <text class="s" x="1010" y="304">solo fuentes públicas</text>
+
+  <rect x="1220" y="250" width="310" height="70" rx="35" fill="#d99e84"/>
+  <text class="h" x="1375" y="281">3 · Normalización</text>
+  <text class="s" x="1375" y="304">huella única, activos por confirmar</text>
+
+  <path class="line" d="M804,285 L854,285" marker-end="url(#arrow)"/>
+  <path class="line" d="M1164,285 L1214,285" marker-end="url(#arrow)"/>
+  <path class="line" d="M1375,324 L1375,414" marker-end="url(#arrow)"/>
+
+  <!-- Fila B -->
+  <rect x="1220" y="420" width="310" height="70" rx="35" fill="#d99e84"/>
+  <text class="h" x="1375" y="451">4 · Motor de scoring</text>
+  <text class="s" x="1375" y="474">determinista · pesos versionados · A–F</text>
+
+  <rect x="860" y="420" width="300" height="70" rx="35" fill="#d99e84"/>
+  <text class="h" x="1010" y="451">5 · Alertas</text>
+  <text class="s" x="1010" y="474">baja de nota o umbral · app y correo</text>
+
+  <rect x="500" y="420" width="300" height="70" rx="35" fill="#8b5cf6"/>
+  <text class="h w" x="650" y="451">6 · Resumen con IA</text>
+  <text class="s w" x="650" y="474">borrador para revisión humana</text>
+
+  <path class="line" d="M1216,455 L1166,455" marker-end="url(#arrow)"/>
+  <path class="line" d="M856,455 L806,455" marker-end="url(#arrow)"/>
+
+  <text class="note" x="1015" y="535">Un colector que falla no detiene el escaneo · el analista confirma activos y clasifica hallazgos</text>
+
+  <!-- Worker -> abajo -->
+  <path class="line" d="M635,562 L635,614" marker-end="url(#arrow)"/>
+  <text class="lbl" x="647" y="595">contexto redactado</text>
+  <path class="line" d="M1200,566 L1200,614" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+  <text class="lbl" x="1214" y="595">consultas pasivas · nunca a la infraestructura de la empresa</text>
+
+  <!-- Servicios de salida -->
+  <rect x="470" y="620" width="330" height="300" rx="28" fill="none" stroke="#111" stroke-width="5" stroke-dasharray="2 10" stroke-linecap="round"/>
+  <text class="box-lbl" x="495" y="657">Servicios de salida</text>
+  <rect x="490" y="675" width="290" height="70" rx="35" fill="#8b5cf6"/>
+  <text class="h w" x="635" y="706">OpenRouter</text>
+  <text class="s w" x="635" y="729">resumen ejecutivo con IA</text>
+  <rect x="490" y="765" width="290" height="70" rx="35" fill="#8b5cf6"/>
+  <text class="h w" x="635" y="796">SMTP de la empresa</text>
+  <text class="s w" x="635" y="819">alertas por correo</text>
+
+  <!-- Fuentes externas -->
+  <rect x="840" y="620" width="720" height="300" rx="28" fill="none" stroke="#111" stroke-width="5" stroke-dasharray="2 10" stroke-linecap="round"/>
+  <text class="box-lbl" x="865" y="657">Fuentes externas (OSINT)</text>
+
+  <rect x="860" y="675" width="220" height="70" rx="35" fill="#dcdcdc"/>
+  <text class="h" x="970" y="706">Shodan InternetDB</text>
+  <text class="s" x="970" y="729">servicios expuestos</text>
+  <rect x="1090" y="675" width="220" height="70" rx="35" fill="#dcdcdc"/>
+  <text class="h" x="1200" y="706">DNS público (DoH)</text>
+  <text class="s" x="1200" y="729">correo: SPF, DMARC, MX</text>
+  <rect x="1320" y="675" width="220" height="70" rx="35" fill="#dcdcdc"/>
+  <text class="h" x="1430" y="706">CT logs: crt.sh</text>
+  <text class="s" x="1430" y="729">respaldo: Cert Spotter</text>
+
+  <rect x="860" y="765" width="220" height="70" rx="35" fill="#dcdcdc"/>
+  <text class="h" x="970" y="796">GitHub público</text>
+  <text class="s" x="970" y="819">secretos filtrados (gitleaks)</text>
+  <rect x="1090" y="765" width="220" height="70" rx="35" fill="#dcdcdc"/>
+  <text class="h" x="1200" y="796">abuse.ch</text>
+  <text class="s" x="1200" y="819">URLhaus · ThreatFox · Feodo</text>
+  <rect x="1320" y="765" width="220" height="70" rx="35" fill="#dcdcdc"/>
+  <text class="h" x="1430" y="796">Typosquatting</text>
+  <text class="s" x="1430" y="819">dominios parecidos vía DoH</text>
+
+  <rect x="860" y="852" width="680" height="46" rx="23" fill="none" stroke="#777" stroke-width="2" stroke-dasharray="8 6"/>
+  <text class="s" x="1200" y="881" style="fill:#555">Previstas: HIBP (credenciales en brechas) · SpiderFoot (solo módulos pasivos)</text>
+
+  <!-- Leyenda -->
+  <g transform="translate(470,955)">
+    <circle cx="8" cy="0" r="8" fill="#8b5cf6"/><text class="lbl" x="24" y="5">Interfaz y servicios</text>
+    <circle cx="200" cy="0" r="8" fill="#c2e3d8"/><text class="lbl" x="216" y="5">Recolección</text>
+    <circle cx="340" cy="0" r="8" fill="#d99e84"/><text class="lbl" x="356" y="5">Análisis y calificación</text>
+    <circle cx="545" cy="0" r="8" fill="#dcdcdc"/><text class="lbl" x="561" y="5">Fuentes implementadas</text>
+    <rect x="740" y="-9" width="30" height="18" rx="9" fill="none" stroke="#777" stroke-width="2" stroke-dasharray="5 4"/><text class="lbl" x="780" y="5">Previsto</text>
+  </g>
+</svg>

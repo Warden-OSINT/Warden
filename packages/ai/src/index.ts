@@ -16,6 +16,23 @@ export interface GeneratedSummary {
   contextHash: string;
 }
 
+/**
+ * JSON de la respuesta del modelo. Aunque se pida JSON puro, algunos modelos lo envuelven en
+ * un bloque ```json o agregan texto antes; se toma el primer objeto completo.
+ */
+export function parseModelJson(content: string): unknown {
+  const fenced = /```(?:json)?\s*([\s\S]*?)```/i.exec(content)?.[1];
+  const text = (fenced ?? content).trim();
+  try {
+    return JSON.parse(text);
+  } catch {
+    const start = text.indexOf('{');
+    const end = text.lastIndexOf('}');
+    if (start === -1 || end <= start) throw new Error('La IA no devolvió JSON');
+    return JSON.parse(text.slice(start, end + 1));
+  }
+}
+
 export async function generateExecutiveSummary(
   ctx: ExecutiveSummaryContext,
   opts: { apiKey: string; model: string; signal?: AbortSignal },
@@ -31,6 +48,6 @@ export async function generateExecutiveSummary(
     signal: opts.signal,
   });
 
-  const summary = executiveSummarySchema.parse(JSON.parse(res.content));
+  const summary = executiveSummarySchema.parse(parseModelJson(res.content));
   return { summary, modelUsed: res.model, promptVersion: PROMPT_VERSION, contextHash };
 }

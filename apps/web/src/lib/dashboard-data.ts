@@ -3,6 +3,7 @@
 
 import {
   CONFIDENCES,
+  FINDING_ASSET_SCOPE_COLUMNS,
   GRADES,
   RISK_DOMAIN_KEYS,
   SCAN_SOURCE_STATUSES,
@@ -13,6 +14,7 @@ import {
   type Grade,
   type RiskDomainKey,
   type Severity,
+  onlyInScopeFindings,
 } from '@warden/shared';
 import type { Json } from '@warden/db';
 import {
@@ -26,27 +28,33 @@ import {
   type ExposureOverview,
   type EmailDomainStatus,
   type EmailOverview,
+  type ReputationOverview,
+  type ReputationSubjectStatus,
   type SourceStatus,
   type FindingRow,
   type ScanSummary,
   type TrendPoint,
 } from './dashboard-types';
 import { mockDashboard } from './mock-dashboard';
+import { loadRecentAlerts } from './alerts';
 import { createClient } from './supabase/server';
 
 /** Fuente del dominio `exposure` con colector implementado (packages/collectors/src/internetdb). */
 export const EXPOSURE_SOURCE_KEY = 'internetdb';
 export const EMAIL_SOURCE_KEY = 'email_dns';
+export const REPUTATION_SOURCE_KEY = 'abusech';
 
 /**
  * Fuentes con colector registrado en packages/collectors/src/registry.ts. La web no importa
  * @warden/collectors (AGENTS.md §4), así que se mantiene a mano: habilitar una fuente sin
  * colector no haría nada.
  */
-export const IMPLEMENTED_SOURCES = [EXPOSURE_SOURCE_KEY, EMAIL_SOURCE_KEY, 'crtsh'] as const;
+export const IMPLEMENTED_SOURCES = [EXPOSURE_SOURCE_KEY, EMAIL_SOURCE_KEY, REPUTATION_SOURCE_KEY, 'crtsh', 'typosquat', 'gitleaks'] as const;
 export type ImplementedSource = (typeof IMPLEMENTED_SOURCES)[number];
 
 const RECENT_FINDINGS = 8;
+/** Hallazgos de un mismo escaneo comparten observed_at: se traen de sobra para elegir los más severos. */
+const RECENT_FINDINGS_WINDOW = 200;
 const TREND_POINTS = 12;
 
 export type DashboardState =
@@ -76,7 +84,7 @@ export async function loadDashboard(): Promise<DashboardState> {
   ]);
   if (!company) return { kind: 'no-company', isAdmin: isAdmin === true };
 
-  const [assets, openFindings, recent, scores, lastScan, schedule, weights, sourceRuns] = await Promise.all([
+  const [assets, openFindings, recent, scores, lastScan, schedule, weights, sourceRuns, alerts] = await Promise.all([
     loadAssets(supabase, company.id),
     loadOpenFindingCounts(supabase, company.id),
     loadRecentFindings(supabase, company.id),
@@ -85,10 +93,12 @@ export async function loadDashboard(): Promise<DashboardState> {
     supabase.from('schedules').select('next_run_at, is_active').eq('company_id', company.id).maybeSingle(),
     loadActiveWeights(supabase),
     loadSourceRuns(supabase, company.id),
+    loadRecentAlerts(supabase, company.id, 1),
   ]);
-  const [exposure, email] = await Promise.all([
+  const [exposure, email, reputation] = await Promise.all([
     loadExposure(supabase, company.id, sourceRuns),
     loadEmail(supabase, company.id, sourceRuns),
+    loadReputation(supabase, company.id, sourceRuns),
   ]);
 
   const latest = scores.latest;
@@ -101,6 +111,7 @@ export async function loadDashboard(): Promise<DashboardState> {
       score: scored?.score ?? null,
       grade: scored?.grade ?? null,
       findingsCount: openFindings.byDomain.get(key) ?? 0,
+      excluded: latest?.excluded.has(key) ?? false,
     };
   });
 
@@ -127,8 +138,11 @@ export async function loadDashboard(): Promise<DashboardState> {
       trend: scores.trend,
       exposure,
       email,
+      reputation,
       sources: sourceRuns.statuses,
       lastScan: lastScan.latest,
+      // Solo si la alerta es del puntaje más reciente: una vieja ya se resolvió o se reemplazó.
+      latestAlert: alerts[0] && alerts[0].at === scores.trend.at(-1)?.scannedAt ? alerts[0] : null,
     },
   };
 }
@@ -166,11 +180,13 @@ async function loadAssets(supabase: Supabase, companyId: string): Promise<AssetR
 }
 
 async function loadOpenFindingCounts(supabase: Supabase, companyId: string) {
-  const { data, error } = await supabase
-    .from('findings')
-    .select('severity, risk_domains!inner(key)')
-    .eq('company_id', companyId)
-    .eq('status', 'open');
+  const { data, error } = await onlyInScopeFindings(
+    supabase
+      .from('findings')
+      .select(`severity, risk_domains!inner(key), assets(${FINDING_ASSET_SCOPE_COLUMNS})`)
+      .eq('company_id', companyId)
+      .eq('status', 'open'),
+  );
   if (error) throw error;
 
   const byDomain = new Map<RiskDomainKey, number>();
@@ -185,48 +201,54 @@ async function loadOpenFindingCounts(supabase: Supabase, companyId: string) {
 
 async function loadRecentFindings(supabase: Supabase, companyId: string): Promise<FindingRow[]> {
   const [{ data, error }, { data: sources }] = await Promise.all([
-    supabase
-      .from('findings')
-      .select('id, title, severity, confidence, observed_at, risk_domains!inner(key), finding_sources(source_key)')
-      .eq('company_id', companyId)
-      .eq('status', 'open')
+    onlyInScopeFindings(
+      supabase
+        .from('findings')
+        .select(`id, title, severity, confidence, observed_at, risk_domains!inner(key), finding_sources(source_key), assets(${FINDING_ASSET_SCOPE_COLUMNS})`)
+        .eq('company_id', companyId)
+        .eq('status', 'open'),
+    )
       .order('observed_at', { ascending: false })
-      .order('severity')
-      .limit(RECENT_FINDINGS),
+      .limit(RECENT_FINDINGS_WINDOW),
     supabase.from('sources').select('source_key, name'),
   ]);
   if (error) throw error;
   const sourceName = new Map((sources ?? []).map((s) => [s.source_key, s.name]));
 
-  return data.map((f) => ({
-    id: f.id,
-    indicator: f.title,
-    domain: f.risk_domains.key as RiskDomainKey,
-    severity: f.severity as Severity,
-    confidence: f.confidence as Confidence,
-    source: f.finding_sources.map((s) => sourceName.get(s.source_key) ?? s.source_key).join(', ') || '—',
-    observedAt: f.observed_at,
-  }));
+  return data
+    .map((f) => ({
+      id: f.id,
+      indicator: f.title,
+      domain: f.risk_domains.key as RiskDomainKey,
+      severity: f.severity as Severity,
+      confidence: f.confidence as Confidence,
+      source: f.finding_sources.map((s) => sourceName.get(s.source_key) ?? s.source_key).join(', ') || '—',
+      observedAt: f.observed_at,
+    }))
+    // severity es text en BD: ordenarla allí sería alfabético (critical, high, info, low, medium).
+    .sort((a, b) => Date.parse(b.observedAt) - Date.parse(a.observedAt) || severityRank(a.severity) - severityRank(b.severity))
+    .slice(0, RECENT_FINDINGS);
 }
 
-/** Puntajes guardados por el worker. Hoy no hay ninguno: el modelo de scoring está pendiente. */
+/** Puntajes guardados por el worker (pipeline/score.ts). */
 async function loadScores(supabase: Supabase, companyId: string) {
   const { data, error } = await supabase
     .from('scores')
-    .select('global_score, grade, computed_at, score_domains(domain_score, grade, risk_domains!inner(key))')
+    .select('global_score, grade, computed_at, excluded_domains, score_domains(domain_score, grade, risk_domains!inner(key))')
     .eq('company_id', companyId)
     .order('computed_at', { ascending: false })
     .limit(TREND_POINTS);
   if (error) throw error;
 
   const trend: TrendPoint[] = data
-    .map((s) => ({ scannedAt: s.computed_at, score: Number(s.global_score) }))
+    .map((s) => ({ scannedAt: s.computed_at, score: Number(s.global_score), grade: asGrade(s.grade) }))
     .reverse();
   const first = data[0];
   const latest = first
     ? {
         score: Number(first.global_score),
         grade: asGrade(first.grade),
+        excluded: new Set(first.excluded_domains),
         domains: new Map(
           first.score_domains.map((d) => [
             d.risk_domains.key as RiskDomainKey,
@@ -250,7 +272,7 @@ async function loadLastScan(supabase: Supabase, companyId: string) {
   const [latestRes, completedRes] = await Promise.all([
     supabase
       .from('scans')
-      .select('id, status, created_at, finished_at, error_message, scan_sources(status)')
+      .select('id, status, created_at, started_at, finished_at, error_message, sources_total, current:sources!scans_current_source_fkey(name), scan_sources(status)')
       .eq('company_id', companyId)
       .order('created_at', { ascending: false })
       .limit(1)
@@ -275,6 +297,8 @@ async function loadLastScan(supabase: Supabase, companyId: string) {
         finishedAt: s.finished_at,
         errorMessage: s.error_message,
         sourceFailures: s.scan_sources.some((r) => isSourceFailure(r.status)),
+        startedAt: s.started_at,
+        progress: { currentSource: s.current?.name ?? null, done: s.scan_sources.length, total: s.sources_total },
       }
     : null;
   return { latest, lastCompletedAt: completedRes.data?.finished_at ?? null };
@@ -337,13 +361,14 @@ async function loadSourceRuns(supabase: Supabase, companyId: string): Promise<So
 
 /** Hallazgos abiertos de exposición agrupados por IP, más el estado de la fuente. */
 async function loadExposure(supabase: Supabase, companyId: string, runs: SourceRuns): Promise<ExposureOverview> {
-  const findingsRes = await supabase
-    .from('findings')
-    .select('id, severity, confidence, observed_at, evidence, risk_domains!inner(key)')
-    .eq('company_id', companyId)
-    .eq('status', 'open')
-    .eq('risk_domains.key', 'exposure')
-    .limit(2000);
+  const findingsRes = await onlyInScopeFindings(
+    supabase
+      .from('findings')
+      .select(`id, severity, confidence, observed_at, evidence, risk_domains!inner(key), assets(${FINDING_ASSET_SCOPE_COLUMNS})`)
+      .eq('company_id', companyId)
+      .eq('status', 'open')
+      .eq('risk_domains.key', 'exposure'),
+  ).limit(2000);
   if (findingsRes.error) throw findingsRes.error;
 
   const source = runs.statuses.find((s) => s.sourceKey === EXPOSURE_SOURCE_KEY) ?? null;
@@ -409,13 +434,14 @@ async function loadExposure(supabase: Supabase, companyId: string, runs: SourceR
 
 /** Estado de SPF/DMARC/MX por dominio (avisos de email_dns) y hallazgos abiertos de correo. */
 async function loadEmail(supabase: Supabase, companyId: string, runs: SourceRuns): Promise<EmailOverview> {
-  const { data, error } = await supabase
-    .from('findings')
-    .select('id, title, severity, risk_domains!inner(key)')
-    .eq('company_id', companyId)
-    .eq('status', 'open')
-    .eq('risk_domains.key', 'email')
-    .limit(200);
+  const { data, error } = await onlyInScopeFindings(
+    supabase
+      .from('findings')
+      .select(`id, title, severity, risk_domains!inner(key), assets(${FINDING_ASSET_SCOPE_COLUMNS})`)
+      .eq('company_id', companyId)
+      .eq('status', 'open')
+      .eq('risk_domains.key', 'email'),
+  ).limit(200);
   if (error) throw error;
 
   return {
@@ -480,6 +506,62 @@ export function parseEmailDomains(notices: Json): EmailDomainStatus[] {
   return [...domains.values()];
 }
 
+/** Activos revisados en abuse.ch (avisos de abusech) y hallazgos abiertos de reputación. */
+async function loadReputation(supabase: Supabase, companyId: string, runs: SourceRuns): Promise<ReputationOverview> {
+  const { data, error } = await onlyInScopeFindings(
+    supabase
+      .from('findings')
+      .select(`id, title, severity, evidence, risk_domains!inner(key), assets(${FINDING_ASSET_SCOPE_COLUMNS})`)
+      .eq('company_id', companyId)
+      .eq('status', 'open')
+      .eq('risk_domains.key', 'reputation'),
+  ).limit(200);
+  if (error) throw error;
+
+  return {
+    source: runs.statuses.find((s) => s.sourceKey === REPUTATION_SOURCE_KEY) ?? null,
+    subjects: parseReputationSubjects(runs.notices.get(REPUTATION_SOURCE_KEY) ?? []),
+    findings: data
+      .map((f) => {
+        const ev = asRecord(f.evidence);
+        return {
+          id: f.id,
+          title: f.title,
+          severity: oneOf(SEVERITIES, f.severity, 'info'),
+          subject: typeof ev.subject === 'string' ? ev.subject : null,
+        };
+      })
+      .sort((a, b) => severityRank(a.severity) - severityRank(b.severity)),
+  };
+}
+
+/** Avisos 'observation' de abusech (abusech/mapper.ts); los activos listados van primero. */
+export function parseReputationSubjects(notices: Json): ReputationSubjectStatus[] {
+  if (!Array.isArray(notices)) return [];
+  const subjects = notices.flatMap((n): ReputationSubjectStatus[] => {
+    const notice = asRecord(n);
+    if (notice.kind !== 'observation') return [];
+    const d = asRecord(notice.details ?? null);
+    if (typeof d.subject !== 'string') return [];
+    const count = (v: unknown) => (typeof v === 'number' ? v : 0);
+    return [{
+      subject: d.subject,
+      type: d.subjectType === 'ip' ? 'ip' : 'domain',
+      resolvedFrom: stringArray(d.resolvedFrom),
+      urlhausOnline: count(d.urlhausOnline),
+      urlhausTotal: count(d.urlhausTotal),
+      threatfoxIocs: count(d.threatfoxIocs),
+      feodo: typeof d.feodo === 'number' ? d.feodo : null,
+      blocklists: stringArray(d.blocklists),
+    }];
+  });
+  const listed = (s: ReputationSubjectStatus) =>
+    s.urlhausTotal + s.threatfoxIocs + (s.feodo ?? 0) + s.blocklists.length > 0;
+  return subjects.sort(
+    (a, b) => Number(listed(b)) - Number(listed(a)) || a.type.localeCompare(b.type) || a.subject.localeCompare(b.subject),
+  );
+}
+
 /** Una fuente que falló o fue bloqueada no aportó datos, aunque el escaneo terminara. */
 export function isSourceFailure(status: string): boolean {
   return status === 'failed' || status === 'blocked';
@@ -507,7 +589,8 @@ function severityRank(s: Severity): number {
   return SEVERITIES.indexOf(s);
 }
 
-function asGrade(value: string): Grade {
+/** grade es char(1) en BD: se recorta por si viniera con relleno. */
+export function asGrade(value: string): Grade {
   return oneOf(GRADES, value.trim(), 'F');
 }
 

@@ -1,0 +1,34 @@
+.addForm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.valueInput {
+  flex: 1;
+  min-width: 220px;
+}
+
+.bulkBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  font-size: 13px;
+}
+
+.check {
+  width: 1%;
+  padding-right: 4px;
+}
+
+.check input {
+  accent-color: var(--accent);
+  cursor: pointer;
+}

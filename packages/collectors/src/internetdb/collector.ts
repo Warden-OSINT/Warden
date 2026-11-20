@@ -30,7 +30,7 @@ export const internetdbCollector: Collector = {
     // Sin ninguna respuesta de DNS, 0 hallazgos no significa 0 exposición: reportarlo como
     // 'ok' haría que resolve.ts cerrara hallazgos abiertos que simplemente no se consultaron.
     if (failed.length === new Set(names.map((n) => n.toLowerCase())).size) {
-      throw new Error(`dns.google no respondió para ningún dominio (${failed.length} consultados)`);
+      throw new Error(`El DNS público (dns.google y Cloudflare) no respondió para ningún dominio (${failed.length} consultados)`);
     }
     for (const asset of target.assets) {
       if (asset.type === 'ip' && isPublicIpv4(asset.value) && !resolved.has(asset.value)) {

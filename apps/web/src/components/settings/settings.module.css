@@ -1,0 +1,89 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 0;
+  border-top: 1px solid var(--border);
+}
+
+.section:first-of-type {
+  border-top: 0;
+  padding-top: 4px;
+}
+
+.sectionHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.sectionHint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* Campos del mismo ancho, alineados en filas sin importar cuántos haya por sección. */
+.inputGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.inputField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.inputField input {
+  width: 100%;
+  min-width: 0;
+}
+
+.sum {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+/* Encabezados en dos líneas si hace falta, para que la tabla quepa sin scroll horizontal. */
+.versionsTable th {
+  white-space: normal;
+  vertical-align: bottom;
+}
+
+.versionsTable td {
+  white-space: nowrap;
+}
+
+.values {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}

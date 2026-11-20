@@ -2,6 +2,8 @@ import type { DiscoveredAsset } from '../types';
 
 /** Una fila de https://crt.sh/?q=...&output=json (solo los campos usados). */
 export interface CrtshEntry {
+  id?: number;
+  serial_number?: string;
   name_value: string;
   not_before: string;
   not_after: string;

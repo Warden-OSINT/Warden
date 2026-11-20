@@ -6,6 +6,10 @@
   --muted: #8b93a1;
   --border: #262b35;
   --accent: #8b7cf6;
+  --scrollbar: #343a46;
+
+  /* Controles nativos (barras de desplazamiento, selects) en su variante oscura. */
+  color-scheme: dark;
 
   /* Notas A–F, también usadas para severidad. */
   --grade-a: #22c55e;
@@ -18,6 +22,9 @@
 
 * {
   box-sizing: border-box;
+  /* Barras delgadas con los colores del tema, sin carril visible. */
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar) transparent;
 }
 
 body {

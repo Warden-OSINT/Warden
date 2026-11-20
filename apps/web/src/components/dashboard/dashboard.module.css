@@ -37,6 +37,18 @@
   gap: 16px;
 }
 
+/* Varias tarjetas en una columna de rowWide; la última se estira para igualar la otra columna. */
+.columnStack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.columnStack > :last-child {
+  flex: 1;
+}
+
 @media (max-width: 1100px) {
   .statsGrid {
     grid-template-columns: repeat(2, 1fr);
@@ -159,6 +171,15 @@
   margin-bottom: 12px;
 }
 
+.filterToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
 .input,
 .select {
   padding: 7px 10px;
@@ -178,6 +199,29 @@
 
 .tableWrap {
   overflow-x: auto;
+}
+
+/* Tabla con alto acotado: se desplaza por dentro y el encabezado queda fijo. */
+.tableScroll {
+  max-height: 440px;
+  overflow-y: auto;
+}
+
+.tableScroll thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface);
+}
+
+.tableFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 13px;
 }
 
 .table {
@@ -260,56 +304,6 @@
   border-radius: 999px;
 }
 
-/* --- Tendencia --- */
-
-.trend {
-  display: flex;
-  align-items: flex-end;
-  gap: 6px;
-  height: 180px;
-  padding-top: 8px;
-}
-
-.trendCol {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 6px;
-  height: 100%;
-}
-
-.trendTrack {
-  flex: 1;
-  width: 100%;
-  display: flex;
-  align-items: flex-end;
-}
-
-.trendBar {
-  width: 100%;
-  border-radius: 4px 4px 0 0;
-  background: var(--accent);
-  opacity: 0.75;
-}
-
-.trendCol:last-child .trendTrack {
-  flex: 1;
-  width: 100%;
-  display: flex;
-  align-items: flex-end;
-}
-
-.trendBar {
-  opacity: 1;
-}
-
-.trendLabel {
-  color: var(--muted);
-  font-size: 11px;
-}
-
 /* --- Hallazgos --- */
 
 .findingList {
@@ -357,6 +351,30 @@
   flex-wrap: wrap;
   gap: 10px;
   font-size: 13px;
+}
+
+/* Indicador de escaneo en curso. */
+.spinner {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  vertical-align: -1px;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+  }
 }
 
 .inlineActions {
@@ -553,4 +571,55 @@
 
 .sourceItem:last-child {
   border-bottom: none;
+}
+
+/* --- Hallazgos --- */
+
+.clickableRow {
+  cursor: pointer;
+}
+
+.clickableRow:hover td {
+  background: var(--surface-2);
+}
+
+.table tr.findingDetailRow td {
+  padding: 0 10px 14px;
+  white-space: normal;
+}
+
+.findingDetail {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 16px;
+  padding: 12px;
+  border-radius: 6px;
+  background: var(--surface-2);
+}
+
+@media (max-width: 900px) {
+  .findingDetail {
+    grid-template-columns: 1fr;
+  }
+}
+
+.detailLabel {
+  margin: 0 0 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.evidence {
+  margin: 0;
+  max-height: 260px;
+  overflow: auto;
+  padding: 10px;
+  border-radius: 6px;
+  background: var(--bg);
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
 }

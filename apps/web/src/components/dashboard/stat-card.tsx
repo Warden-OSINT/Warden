@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import styles from './dashboard.module.css';
 
 interface StatCardProps {
-  label: string;
+  label: ReactNode;
   value: string | number;
   hint?: string;
   /** Elemento opcional a la derecha, p. ej. un ScoreGauge. */

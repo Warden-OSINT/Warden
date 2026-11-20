@@ -1,8 +1,16 @@
 // Historial de escaneos de la empresa evaluada con el resultado de cada fuente
 // (tablas scans + scan_sources), para diagnosticar fallos sin ir a la BD.
 
-import { SCAN_SOURCE_STATUSES, SCAN_STATUSES, type ScanSourceStatus, type ScanStatus } from '@warden/shared';
-import { isSourceFailure, loadActiveCompany, oneOf, parseCdnHosts } from './dashboard-data';
+import {
+  RISK_DOMAIN_KEYS,
+  SCAN_SOURCE_STATUSES,
+  SCAN_STATUSES,
+  type Grade,
+  type RiskDomainKey,
+  type ScanSourceStatus,
+  type ScanStatus,
+} from '@warden/shared';
+import { asGrade, isSourceFailure, loadActiveCompany, oneOf, parseCdnHosts } from './dashboard-data';
 import type { ScanSummary } from './dashboard-types';
 import { createClient } from './supabase/server';
 
@@ -22,6 +30,17 @@ export interface ScanSourceRun {
   message: string | null;
 }
 
+/** Calificación guardada por el worker para un escaneo (tablas scores + score_domains). */
+export interface ScanScore {
+  score: number;
+  grade: Grade;
+  /** Variación contra el escaneo calificado anterior; null si es el primero. */
+  delta: number | null;
+  domains: { key: RiskDomainKey; score: number; grade: Grade }[];
+  /** Dominios sin datos en ese escaneo, excluidos del KRI. */
+  excludedDomains: RiskDomainKey[];
+}
+
 export interface ScanHistoryRow {
   id: string;
   status: ScanStatus;
@@ -31,6 +50,11 @@ export interface ScanHistoryRow {
   finishedAt: string | null;
   errorMessage: string | null;
   sources: ScanSourceRun[];
+  /** Fuente que el worker consulta ahora (solo en curso) y total de colectores. */
+  currentSource: string | null;
+  sourcesTotal: number | null;
+  /** null si el escaneo no se calificó (anterior al scoring, fallido o sin dominios con datos). */
+  score: ScanScore | null;
 }
 
 export type ScanHistoryState =
@@ -53,7 +77,7 @@ export async function loadScanHistory(): Promise<ScanHistoryState> {
     supabase
       .from('scans')
       .select(
-        'id, status, trigger_type, created_at, started_at, finished_at, error_message, scan_sources(source_key, status, items_returned, assets_returned, findings_returned, notices, latency_ms, message)',
+        'id, status, trigger_type, created_at, started_at, finished_at, error_message, sources_total, current:sources!scans_current_source_fkey(name), scan_sources(source_key, status, items_returned, assets_returned, findings_returned, notices, latency_ms, message), scores(global_score, grade, excluded_domains, score_domains(domain_score, grade, risk_domains!inner(key)))',
       )
       .eq('company_id', company.id)
       .order('created_at', { ascending: false })
@@ -63,10 +87,29 @@ export async function loadScanHistory(): Promise<ScanHistoryState> {
   if (scansRes.error) throw scansRes.error;
   const sourceName = new Map((sources ?? []).map((s) => [s.source_key, s.name]));
 
+  const isDomain = (key: string): key is RiskDomainKey => (RISK_DOMAIN_KEYS as readonly string[]).includes(key);
+  const rows = scansRes.data.map((s) => {
+    // scores.scan_id es único: PostgREST lo embebe como objeto (o null), no como arreglo.
+    const raw = s.scores;
+    const score: Omit<ScanScore, 'delta'> | null = raw
+      ? {
+          score: Number(raw.global_score),
+          grade: asGrade(raw.grade),
+          domains: raw.score_domains
+            .flatMap((d) => (isDomain(d.risk_domains.key)
+              ? [{ key: d.risk_domains.key, score: Number(d.domain_score), grade: asGrade(d.grade) }]
+              : []))
+            .sort((a, b) => RISK_DOMAIN_KEYS.indexOf(a.key) - RISK_DOMAIN_KEYS.indexOf(b.key)),
+          excludedDomains: raw.excluded_domains.filter(isDomain),
+        }
+      : null;
+    return { s, score };
+  });
+
   return {
     kind: 'ready',
     company: { id: company.id, name: company.name, primaryDomain: company.primary_domain },
-    scans: scansRes.data.map((s) => ({
+    scans: rows.map(({ s, score }, i) => ({
       id: s.id,
       status: oneOf(SCAN_STATUSES, s.status, 'failed'),
       trigger: s.trigger_type === 'scheduled' ? 'scheduled' : 'manual',
@@ -74,6 +117,8 @@ export async function loadScanHistory(): Promise<ScanHistoryState> {
       startedAt: s.started_at,
       finishedAt: s.finished_at,
       errorMessage: s.error_message,
+      currentSource: s.current?.name ?? null,
+      sourcesTotal: s.sources_total,
       sources: s.scan_sources
         .map((r) => ({
           sourceKey: r.source_key,
@@ -87,8 +132,16 @@ export async function loadScanHistory(): Promise<ScanHistoryState> {
           message: r.message,
         }))
         .sort((a, b) => a.name.localeCompare(b.name)),
+      score: score && { ...score, delta: previousScore(rows, i) },
     })),
   };
+}
+
+/** Puntaje del escaneo calificado inmediatamente anterior (la lista va del más nuevo al más viejo). */
+function previousScore(rows: { score: { score: number } | null }[], index: number): number | null {
+  const current = rows[index]?.score;
+  const previous = rows.slice(index + 1).find((r) => r.score)?.score;
+  return current && previous ? Math.round((current.score - previous.score) * 100) / 100 : null;
 }
 
 /** Resumen del escaneo más reciente, en la forma que usa ScanControls. */
@@ -102,6 +155,8 @@ export function latestScanSummary(scans: ScanHistoryRow[]): ScanSummary | null {
         finishedAt: s.finishedAt,
         errorMessage: s.errorMessage,
         sourceFailures: s.sources.some((r) => isSourceFailure(r.status)),
+        startedAt: s.startedAt,
+        progress: { currentSource: s.currentSource, done: s.sources.length, total: s.sourcesTotal },
       }
     : null;
 }

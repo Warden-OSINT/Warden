@@ -20,17 +20,56 @@ export type Confidence = (typeof CONFIDENCES)[number];
 export const GRADES = ['A', 'B', 'C', 'D', 'E', 'F'] as const;
 export type Grade = (typeof GRADES)[number];
 
-export const ASSET_TYPES = ['domain', 'subdomain', 'ip', 'ip_range', 'asn'] as const;
+/** Puntaje mínimo (0–100) de cada nota; por debajo de E es F (docs/scoring-model.md). */
+export const GRADE_THRESHOLDS: readonly (readonly [Grade, number])[] = [['A', 90], ['B', 80], ['C', 70], ['D', 60], ['E', 50]];
+
+export function gradeFor(score: number): Grade {
+  return GRADE_THRESHOLDS.find(([, min]) => score >= min)?.[0] ?? 'F';
+}
+
+// code_org: organización o usuario de GitHub de la empresa (github.com/<nombre>); la usa gitleaks.
+export const ASSET_TYPES = ['domain', 'subdomain', 'ip', 'ip_range', 'asn', 'code_org'] as const;
 export type AssetType = (typeof ASSET_TYPES)[number];
 
 export const FINDING_STATUSES = ['open', 'false_positive', 'accepted', 'resolved'] as const;
 export type FindingStatus = (typeof FINDING_STATUSES)[number];
 
-export const SCAN_STATUSES = ['queued', 'running', 'completed', 'failed'] as const;
+// cancelled: un miembro lo detuvo (cancel_scan); no persiste resultados ni se califica.
+export const SCAN_STATUSES = ['queued', 'running', 'completed', 'failed', 'cancelled'] as const;
 export type ScanStatus = (typeof SCAN_STATUSES)[number];
 
 export const SCAN_SOURCE_STATUSES = ['ok', 'failed', 'skipped', 'blocked'] as const;
 export type ScanSourceStatus = (typeof SCAN_SOURCE_STATUSES)[number];
+
+// grade_drop: la nota global bajó respecto al escaneo calificado anterior.
+// threshold_crossed: la nota quedó por debajo del umbral de alert_settings.
+export const ALERT_TYPES = ['grade_drop', 'threshold_crossed'] as const;
+export type AlertType = (typeof ALERT_TYPES)[number];
+
+// in_app: la alerta tal como se ve en la web. Su envío por correo se registra aparte, en
+// integration_outbox (destination = 'email'); webhook aún no tiene envío implementado.
+export const ALERT_CHANNELS = ['email', 'webhook', 'in_app'] as const;
+export type AlertChannel = (typeof ALERT_CHANNELS)[number];
+
+// Deben coincidir con los CHECK de integration_outbox.
+export const OUTBOX_DESTINATIONS = ['siem', 'soar', 'email'] as const;
+export type OutboxDestination = (typeof OUTBOX_DESTINATIONS)[number];
+export const OUTBOX_STATUSES = ['pending', 'sent', 'failed'] as const;
+export type OutboxStatus = (typeof OUTBOX_STATUSES)[number];
+
+// Eventos que se envían al SIEM (integration_outbox.event_type con destination = 'siem').
+// En Splunk llegan con sourcetype `warden:<tipo>`.
+export const SIEM_EVENT_TYPES = ['score', 'alert'] as const;
+export type SiemEventType = (typeof SIEM_EVENT_TYPES)[number];
+
+/** true si `a` es peor nota que `b` (A es la mejor). */
+export function isWorseGrade(a: Grade, b: Grade): boolean {
+  return GRADES.indexOf(a) > GRADES.indexOf(b);
+}
+
+// pending: solicitado; draft: generado por la IA sin revisión humana; failed: no se pudo generar.
+export const REPORT_STATUSES = ['pending', 'draft', 'validated', 'published', 'failed'] as const;
+export type ReportStatus = (typeof REPORT_STATUSES)[number];
 
 export const QUEUES = {
   scanRequests: 'scan_requests',
@@ -39,4 +78,47 @@ export const QUEUES = {
 
 export interface ScanRequestMessage {
   scan_id: string;
+}
+
+export interface ReportRequestMessage {
+  score_id: string;
+}
+
+// Alcance de los hallazgos. Un hallazgo cuenta (KRI, dashboard, reportes, SIEM, resumen IA)
+// si no tiene activo o si su activo sigue en alcance: confirmado, o pendiente descubierto por
+// una fuente (subdominios e IPs que salen de activos confirmados y aún nadie revisa). Quedan
+// fuera los activos descartados y los manuales sin confirmar: un activo manual entra
+// confirmado, así que solo llega a 'pending' si un analista le quitó la confirmación.
+// Volver a confirmarlo recupera sus hallazgos sin tocar el triage.
+
+export interface FindingAssetScope {
+  attribution_status: string;
+  discovery_source: string;
+}
+
+/** true si el activo del hallazgo (null = sin activo) sigue en alcance. */
+export function isAssetInScope(asset: FindingAssetScope | null): boolean {
+  if (!asset) return true;
+  return asset.attribution_status === 'confirmed'
+    || (asset.attribution_status === 'pending' && asset.discovery_source === 'auto');
+}
+
+/** Columnas del activo que la consulta debe embeber como `assets(...)` para filtrar el alcance. */
+export const FINDING_ASSET_SCOPE_COLUMNS = 'attribution_status, discovery_source';
+
+/** Mismo criterio que isAssetInScope, como filtros de PostgREST. */
+export const IN_SCOPE_ASSET_FILTER = 'attribution_status.eq.confirmed,and(attribution_status.eq.pending,discovery_source.eq.auto)';
+export const IN_SCOPE_FINDING_FILTER = 'asset_id.is.null,assets.not.is.null';
+
+interface OrFilterable<Q> {
+  or(filters: string, options?: { referencedTable?: string }): Q;
+}
+
+/**
+ * Restringe una consulta de `findings` a los hallazgos en alcance. La consulta debe embeber
+ * `assets(…)` sin `!inner`: el primer filtro deja el embed en null si el activo está fuera
+ * de alcance y el segundo descarta esas filas (las que no tienen activo se conservan).
+ */
+export function onlyInScopeFindings<Q extends OrFilterable<Q>>(query: Q): Q {
+  return query.or(IN_SCOPE_ASSET_FILTER, { referencedTable: 'assets' }).or(IN_SCOPE_FINDING_FILTER);
 }

@@ -5,6 +5,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState, type ChangeEvent, type FormEvent } from 'react';
+import { isValidIdentifier, normalizeIdentifier, toAuthEmail } from '@/lib/local-user';
 import { createClient } from '@/lib/supabase/client';
 import styles from './login.module.css';
 
@@ -30,8 +31,7 @@ export default function LoginPage() {
       setError({ field: 'email', message: 'El usuario o correo es obligatorio' });
       return false;
     }
-    const identifier = credentials.email.trim().toLowerCase();
-    if (!(identifier.includes('@') ? /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier) : /^[a-z0-9][a-z0-9._-]{2,31}$/.test(identifier))) {
+    if (!isValidIdentifier(normalizeIdentifier(credentials.email))) {
       setError({ field: 'email', message: 'Usuario o correo inválido' });
       return false;
     }
@@ -50,9 +50,8 @@ export default function LoginPage() {
     setIsLoading(true);
     try {
       const supabase = createClient();
-      const identifier = credentials.email.trim().toLowerCase();
       const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email: identifier.includes('@') ? identifier : `${identifier}@warden.test`,
+        email: toAuthEmail(normalizeIdentifier(credentials.email)),
         password: credentials.password,
       });
       if (authError) {
