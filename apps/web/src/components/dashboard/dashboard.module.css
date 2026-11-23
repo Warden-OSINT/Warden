@@ -738,7 +738,7 @@
 .table th {
   padding: 9px 10px;
   background: var(--bg);
-  color: #9da7b3;
+  color: var(--muted);
   font-size: 10px;
   font-weight: 650;
   letter-spacing: 0.055em;
@@ -751,7 +751,7 @@
 }
 
 .table tbody tr:hover td {
-  background: rgb(28 33 40 / 0.5);
+  background: var(--surface-2);
 }
 
 .table tr:last-child td {
@@ -774,7 +774,7 @@
 
 .input:hover,
 .select:hover {
-  border-color: #59636f;
+  border-color: var(--border-strong);
 }
 
 .input:focus,
@@ -822,7 +822,7 @@
 }
 
 .buttonGhost:hover {
-  border-color: #59636f;
+  border-color: var(--border-strong);
   background: var(--surface);
 }
 
@@ -847,7 +847,7 @@
 
 .tag {
   border-radius: 4px;
-  background: rgb(22 27 34 / 0.75);
+  background: var(--surface);
 }
 
 .findingDetail {
@@ -860,7 +860,7 @@
   border: 1px solid var(--border);
   border-radius: 5px;
   background: var(--bg);
-  color: #b8c2cc;
+  color: var(--text);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-variant-numeric: tabular-nums;
 }

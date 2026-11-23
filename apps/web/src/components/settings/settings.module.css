@@ -112,7 +112,7 @@
 }
 
 .inputField input:hover {
-  border-color: #59636f;
+  border-color: var(--border-strong);
 }
 
 .inputField input:focus-visible {

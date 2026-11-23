@@ -4,6 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { ThemeToggle } from './theme-toggle';
 import styles from './top-nav.module.css';
 
 const NAV = [
@@ -50,6 +51,7 @@ export function TopNav() {
           );
         })}
       </ul>
+      <ThemeToggle />
       <button type="button" className={styles.logout} onClick={logout}>
         Cerrar sesión
       </button>

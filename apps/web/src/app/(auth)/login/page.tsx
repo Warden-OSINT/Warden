@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { useState, type ChangeEvent, type FormEvent } from 'react';
 import { isValidIdentifier, normalizeIdentifier, toAuthEmail } from '@/lib/local-user';
 import { createClient } from '@/lib/supabase/client';
+import { ThemeToggle } from '@/components/theme-toggle';
 import styles from './login.module.css';
 
 interface LoginError {
@@ -98,6 +99,9 @@ export default function LoginPage() {
 
       <section className={styles.loginPanel} aria-labelledby="login-heading">
         <div className={styles.loginContent}>
+          <div className={styles.loginActions}>
+            <ThemeToggle />
+          </div>
           <div className={styles.loginHeading}>
             <p className={styles.brand}>WARDEN <span className={styles.brandMark}>/</span> OSINT</p>
             <h1 id="login-heading" className={styles.title}>Iniciar sesión</h1>
