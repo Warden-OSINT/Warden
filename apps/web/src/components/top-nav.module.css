@@ -7,7 +7,7 @@
   gap: 28px;
   min-height: 56px;
   padding: 0 max(20px, calc((100vw - 1440px) / 2));
-  background: rgb(13 17 23 / 94%);
+  background: color-mix(in srgb, var(--bg) 94%, transparent);
   border-bottom: 1px solid var(--border);
   backdrop-filter: blur(14px);
 }
@@ -89,7 +89,7 @@
 
 .logout:hover {
   color: var(--text);
-  border-color: #59636f;
+  border-color: var(--border-strong);
   background: var(--surface);
 }
 

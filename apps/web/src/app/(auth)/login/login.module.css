@@ -93,6 +93,12 @@
   margin-bottom: 28px;
 }
 
+.loginActions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 18px;
+}
+
 .brand {
   margin: 0 0 32px;
   color: var(--text);
@@ -162,22 +168,22 @@
 }
 
 .inputError {
-  border-color: var(--grade-f);
+  border-color: var(--danger);
 }
 
 .errorText {
   margin-top: 5px;
-  color: var(--grade-f);
+  color: var(--danger);
   font-size: 11px;
 }
 
 .errorBox {
   margin: 0 0 16px;
   padding: 10px 11px;
-  border: 1px solid rgb(248 81 73 / 0.28);
+  border: 1px solid color-mix(in srgb, var(--danger) 28%, transparent);
   border-radius: 6px;
-  background: rgb(248 81 73 / 0.08);
-  color: #ff8b85;
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+  color: var(--danger);
   font-size: 12px;
   line-height: 1.5;
 }
