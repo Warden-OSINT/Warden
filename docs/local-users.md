@@ -6,7 +6,8 @@ cambiar contraseñas sin enviar correos. Puedes crear e ingresar como `analista`
 internamente se utiliza `analista@warden.test` en Supabase Auth. Los identificadores
 admiten de 3 a 32 letras ASCII, números, puntos, guiones o guiones bajos y se
 normalizan a minúsculas. El login sigue aceptando correos completos. La
-verificación de correo y MFA quedan pendientes.
+verificación en dos pasos (TOTP) es obligatoria para todas las cuentas (ver
+[MFA](#verificación-en-dos-pasos-mfa)); la verificación de correo queda pendiente.
 
 ## Preparación
 
@@ -33,7 +34,9 @@ verificación de correo y MFA quedan pendientes.
    (copiando antes `supabase/functions/.env.example`).
 
 5. Ejecuta `pnpm --filter @warden/web dev`. Entra con `admin@warden.test` y la
-   contraseña de desarrollo `warden-dev-admin`, y abre Configuración → Usuarios → Administrar.
+   contraseña de desarrollo `warden-dev-admin`. En el primer ingreso Warden pide
+   vincular una app autenticadora (Google Authenticator u otra TOTP) y luego abre el
+   dashboard. Abre Configuración → Usuarios → Administrar.
 6. Crea una cuenta, actívala explícitamente en el listado, cierra sesión y comprueba
    el ingreso con las nuevas credenciales. Comprueba también que un analista no
    puede acceder a la administración y que desactivarlo retira su acceso a los
@@ -42,6 +45,37 @@ verificación de correo y MFA quedan pendientes.
 No necesitas `db:reset` para esta función: utiliza el esquema existente. Ese comando
 borra los datos de desarrollo y vuelve a aplicar seeds; úsalo solo si deseas
 recrear la base local.
+
+## Verificación en dos pasos (MFA)
+
+Usa el soporte nativo de Supabase Auth: factor `totp`, niveles AAL1 (solo
+contraseña) y AAL2 (contraseña + código). `supabase/config.toml` habilita
+`[auth.mfa.totp]` (`enroll_enabled` y `verify_enabled`) en el stack local; en un
+proyecto hospedado hay que activarlo en Authentication → MFA.
+
+- **Obligatoria para todos.** Tras la contraseña, `/login` manda a `/mfa`. Si la
+  cuenta no tiene factor verificado, `/mfa` muestra el QR y la clave manual y
+  activa el factor al verificar el primer código. Si ya lo tiene, pide el código
+  de 6 dígitos. Verificar sube la sesión a AAL2.
+- **Proxy.** `src/proxy.ts` redirige a `/mfa` toda sesión AAL1 (regla pura
+  `mfaGate` en `lib/mfa.ts`); `/login` queda libre para cambiar de cuenta.
+- **RLS.** La migración `20261124000100_require_mfa_aal2.sql` hace que
+  `app_role()` devuelva `null` si `auth.jwt()->>'aal'` no es `aal2`, así que
+  `is_member()` e `is_admin()` (y todas sus políticas y RPCs) niegan el acceso
+  con AAL1 aunque el JWT siga vigente. La política "own profile read" no depende
+  de `app_role()`: el login aún puede comprobar `is_active` antes del código. El
+  worker usa service role y no se ve afectado.
+- **`manage-users`** rechaza tokens que no sean `aal2`.
+- **Mis autenticadores.** Configuración → Seguridad lista los factores del
+  usuario, permite agregar otro (p. ej. un teléfono nuevo) y darlos de baja. Al
+  dar de baja, Auth baja la sesión a AAL1 y Warden vuelve a pedir el código o, si
+  era el único, un factor nuevo.
+- **Teléfono perdido.** Un admin abre el usuario en Configuración → Usuarios y
+  pulsa **Restablecer MFA** (`resetMfa`: borra sus factores con
+  `auth.admin.mfa`). No se puede restablecer la propia; si el único admin pierde
+  su autenticador en local, borra sus filas de `auth.mfa_factors` desde Studio.
+- Para probar sin teléfono, cualquier generador TOTP (SHA-1, 6 dígitos, 30 s)
+  sirve con la clave manual que muestra la inscripción.
 
 ## Seguridad y alcance
 
@@ -69,7 +103,7 @@ recrear la base local.
 - No hay borrado de cuentas. Desactivarlas conserva la atribución histórica.
 - La página se deshabilita con `NODE_ENV=production` o una URL de Supabase remota.
   No desplegar esta función en Cloud: la futura administración productiva deberá
-  diseñar verificación por correo, MFA y políticas de sesiones.
+  diseñar verificación por correo y políticas de sesiones (la MFA ya aplica).
 
 ## Verificación
 

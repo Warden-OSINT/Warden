@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc",
-    "test": "node --experimental-strip-types --test ../../supabase/functions/manage-users/handler.test.ts"
+    "test": "node --experimental-strip-types --test ../../supabase/functions/manage-users/handler.test.ts test/mfa.test.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

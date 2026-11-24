@@ -14,6 +14,7 @@ import {
   changeUserPassword,
   createUser,
   loadUsers,
+  resetUserMfa,
   updateUser,
   type UserActionResult,
 } from '@/app/(dashboard)/settings/users/actions';
@@ -131,6 +132,7 @@ function ActiveToggle({ user }: { user: ManagedUser }) {
 function EditPanel({ user, isSelf }: { user: ManagedUser; isSelf: boolean }) {
   const profile = useFormAction(updateUser, false);
   const password = useFormAction(changeUserPassword, true);
+  const mfa = useFormAction(resetUserMfa, false);
   return (
     <div className={styles.editPanel}>
       <form onSubmit={profile.onSubmit}>
@@ -177,6 +179,23 @@ function EditPanel({ user, isSelf }: { user: ManagedUser; isSelf: boolean }) {
           <Feedback state={password.state} />
         </fieldset>
       </form>
+      {!isSelf && (
+        <form onSubmit={mfa.onSubmit}>
+          <h3 className={styles.editTitle}>Autenticador (MFA)</h3>
+          <input type="hidden" name="id" value={user.id} />
+          <fieldset disabled={mfa.pending} className={styles.form}>
+            <span className={styles.fieldHint}>
+              Si perdió su app autenticadora, borra sus factores: en su próximo ingreso deberá inscribir uno nuevo.
+            </span>
+            <div className={styles.formActions}>
+              <button type="submit" className={dashboard.buttonGhost}>
+                {mfa.pending ? 'Restableciendo…' : 'Restablecer MFA'}
+              </button>
+            </div>
+            <Feedback state={mfa.state} />
+          </fieldset>
+        </form>
+      )}
     </div>
   );
 }
@@ -267,7 +286,7 @@ export function UserManagement({
           ← Configuración
         </Link>
         <h1 className={dashboard.pageTitle}>Usuarios</h1>
-        <p className={dashboard.subtitle}>Cuentas locales con contraseña. Verificación por correo y MFA pendientes.</p>
+        <p className={dashboard.subtitle}>Cuentas locales con contraseña y verificación en dos pasos (TOTP) obligatoria. Verificación por correo pendiente.</p>
       </div>
 
       {error && <p className={`${styles.feedback} ${styles.error}`} role="alert">{error}</p>}
