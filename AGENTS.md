@@ -26,7 +26,7 @@ Warden es un proyecto universitario desarrollado para **una empresa real que lo 
 | `analyst` | Leer todo lo operativo, registrar empresas y activos, clasificar (triage) hallazgos, solicitar escaneos. |
 | `admin` | Todo lo anterior + configurar fuentes, pesos del KRI, programación, alertas y usuarios. |
 
-Los usuarios nuevos se crean con `is_active = false`; un admin los activa en `public.profiles`.
+Los usuarios nuevos se crean con `is_active = false`; un admin los activa en `public.profiles`. Toda cuenta debe inscribir un autenticador TOTP: sin sesión AAL2, `is_member()`/`is_admin()` devuelven `false`.
 
 ### Los 6 dominios de riesgo
 
@@ -49,7 +49,7 @@ Estos valores deben coincidir en tres lugares: `packages/shared/src/index.ts`, l
 |---|---|
 | Esquema de BD, RLS, colas, cron | ✅ Completo (`supabase/migrations/`) |
 | Login con Supabase Auth | ✅ `apps/web/src/app/(auth)/login` |
-| Usuarios locales | ✅ `/settings/users`: creación, nombre/rol, activación y contraseñas mediante la función local `manage-users`; requiere Supabase local, admin activo y función habilitada. Correo verificado y MFA pendientes (`docs/local-users.md`). |
+| Usuarios locales | ✅ `/settings/users`: creación, nombre/rol, activación y contraseñas mediante la función local `manage-users`; requiere Supabase local, admin activo y función habilitada. **MFA TOTP obligatoria para todos** (`/mfa`, Configuración → Seguridad; el proxy y RLS vía `app_role()` exigen AAL2; un admin puede restablecer la MFA de otro). Correo verificado pendiente (`docs/local-users.md`). |
 | Dashboard | 🟡 Datos reales de Supabase (`lib/dashboard-data.ts`): registro de la empresa, paneles de exposición, correo y reputación, escaneo manual, confirmación de activos y habilitar `internetdb` (admin). KRI y notas por dominio desde `scores` (dominios sin datos marcados como cobertura parcial) y aviso si el último escaneo disparó una alerta. Sin sesión y con `WARDEN_DEV_SKIP_AUTH` usa `mock-dashboard.ts` |
 | `POST /api/scans` | ✅ Encola escaneos manuales |
 | Worker (cola → colectores → persistencia) | ✅ Funciona |
@@ -243,7 +243,7 @@ Fuente de verdad: `supabase/migrations/`. Diagrama ER: [docs/diagrams/warden_er_
 | Resultados | `scores`, `score_domains`, `reports` (guarda `model_used`, `prompt_version`, `context_hash`) |
 | Alertas / integración | `alert_settings`, `alerts`, `integration_outbox` (patrón outbox), `archives` |
 
-Funciones SQL relevantes: `app_role()`, `is_member()`, `is_admin()`, `request_scan()`, `enqueue_due_scans()`, `activate_scoring_weights()` (valida que los pesos sumen 100), `queue_read()`, `queue_set_vt()`, `queue_delete()`.
+Funciones SQL relevantes: `app_role()` (null si la sesión no es AAL2), `is_member()`, `is_admin()`, `request_scan()`, `enqueue_due_scans()`, `activate_scoring_weights()` (valida que los pesos sumen 100), `queue_read()`, `queue_set_vt()`, `queue_delete()`.
 
 ---
 

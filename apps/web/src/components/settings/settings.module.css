@@ -87,3 +87,40 @@
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
+
+.section {
+  gap: 12px;
+  padding: 18px 0;
+}
+
+.sectionTitle {
+  font-size: 14px;
+  letter-spacing: -0.01em;
+}
+
+.inputGrid {
+  gap: 14px;
+}
+
+.inputField input {
+  min-height: 36px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.inputField input:hover {
+  border-color: var(--border-strong);
+}
+
+.inputField input:focus-visible {
+  border-color: var(--accent);
+  outline: 2px solid rgb(53 200 189 / 0.18);
+  outline-offset: 0;
+}
+
+.footer {
+  padding-top: 18px;
+}

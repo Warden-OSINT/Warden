@@ -11,7 +11,8 @@ export type UserCommand =
   | { action: 'list'; page: number }
   | { action: 'create'; email: string; password: string; fullName: string; role: 'admin' | 'analyst' }
   | { action: 'update'; id: string; fullName: string; role: 'admin' | 'analyst'; isActive: boolean }
-  | { action: 'password'; id: string; password: string };
+  | { action: 'password'; id: string; password: string }
+  | { action: 'resetMfa'; id: string };
 
 export interface UserAdminBackend {
   authorize(token: string): Promise<string | null>;
@@ -36,13 +37,14 @@ function parseCommand(value: unknown): UserCommand {
     }
     return { action: 'list', page: Number(page) };
   }
-  if (input.action !== 'create' && input.action !== 'update' && input.action !== 'password') {
+  if (input.action !== 'create' && input.action !== 'update' && input.action !== 'password' && input.action !== 'resetMfa') {
     throw new UserAdminError(400, 'Acción inválida');
   }
   const id = typeof input.id === 'string' ? input.id : '';
   if (input.action !== 'create' && !/^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i.test(id)) {
     throw new UserAdminError(400, 'Usuario inválido');
   }
+  if (input.action === 'resetMfa') return { action: 'resetMfa', id };
   if (input.action === 'create' || input.action === 'password') {
     // bcrypt limita la entrada a 72 bytes: no aceptar contraseñas que se truncarían.
     if (typeof input.password !== 'string' || input.password.length < 6 || new TextEncoder().encode(input.password).length > 72) {
@@ -85,6 +87,9 @@ export function createUserAdminHandler(backend: UserAdminBackend, enabled: boole
       let value: unknown;
       try { value = JSON.parse(body); } catch { return reply({ error: 'Solicitud inválida' }, 400); }
       const command = parseCommand(value);
+      if (command.action === 'resetMfa' && command.id === actorId) {
+        return reply({ error: 'Para cambiar tu propio autenticador usa Configuración → Seguridad' }, 400);
+      }
       if (command.action === 'update' && command.id === actorId && (!command.isActive || command.role !== 'admin')) {
         return reply({ error: 'No puedes desactivar tu propia cuenta ni quitarte el rol de administrador' }, 400);
       }
