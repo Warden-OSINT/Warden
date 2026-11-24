@@ -23,6 +23,8 @@ Deno.serve(createUserAdminHandler({
       const payload = JSON.parse(atob(token.split('.')[1]!.replace(/-/g, '+').replace(/_/g, '/')));
       const issuer = new URL(payload.iss);
       if (!['127.0.0.1', 'localhost', '[::1]'].includes(issuer.hostname) || issuer.pathname !== '/auth/v1') return null;
+      // MFA obligatoria: solo una sesión que ya verificó su código TOTP administra usuarios.
+      if (payload.aal !== 'aal2') return null;
     } catch { return null; }
     const { data: profile } = await supabase.from('profiles').select('role, is_active').eq('id', user.id).single();
     return profile?.is_active && profile.role === 'admin' ? user.id : null;
@@ -59,7 +61,15 @@ Deno.serve(createUserAdminHandler({
       }
     } else {
       targetId = command.id;
-      if (command.action === 'password') {
+      if (command.action === 'resetMfa') {
+        // Para quien perdió su autenticador: al borrar sus factores, el siguiente login le pide inscribir uno nuevo.
+        const { data, error } = await supabase.auth.admin.mfa.listFactors({ userId: targetId });
+        fail(error);
+        for (const factor of data?.factors ?? []) {
+          const { error: deleteError } = await supabase.auth.admin.mfa.deleteFactor({ id: factor.id, userId: targetId });
+          fail(deleteError);
+        }
+      } else if (command.action === 'password') {
         const { error } = await supabase.auth.admin.updateUserById(targetId, { password: command.password });
         fail(error);
       } else {

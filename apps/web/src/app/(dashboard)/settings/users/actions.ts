@@ -69,3 +69,9 @@ export async function changeUserPassword(_previous: UserActionResult, form: Form
   if (result.error) return { error: result.error };
   return { message: 'Contraseña actualizada', warning: result.warning };
 }
+
+export async function resetUserMfa(_previous: UserActionResult, form: FormData): Promise<UserActionResult> {
+  const result = await invoke({ action: 'resetMfa', id: String(form.get('id') ?? '') });
+  if (result.error) return { error: result.error };
+  return { message: 'MFA restablecida: deberá inscribir un autenticador nuevo al ingresar', warning: result.warning };
+}

@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { MFA_PATH, mfaGate } from '@/lib/mfa';
 
 // Refresca la sesión de Supabase en cada request y manda a /login a quien no esté autenticado.
 // El control por rol (admin/analyst) lo aplica RLS en la BD.
@@ -36,6 +37,22 @@ export async function proxy(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     return NextResponse.redirect(url);
+  }
+
+  // MFA obligatoria: con AAL1 (solo contraseña) únicamente se puede usar /mfa para
+  // inscribir el factor o escribir el código. RLS también exige AAL2 (app_role()).
+  if (user) {
+    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    const gate = mfaGate(request.nextUrl.pathname, aal?.currentLevel);
+    if (gate !== 'allow') {
+      const url = request.nextUrl.clone();
+      url.pathname = gate === 'to-mfa' ? MFA_PATH : '/';
+      url.search = '';
+      const redirect = NextResponse.redirect(url);
+      // Conserva las cookies de sesión que Supabase pudo haber refrescado en este request.
+      for (const cookie of response.cookies.getAll()) redirect.cookies.set(cookie);
+      return redirect;
+    }
   }
 
   return response;

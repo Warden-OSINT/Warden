@@ -1,0 +1,227 @@
+.enroll {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.steps {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.qrBlock {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 18px;
+}
+
+.qr {
+  flex: none;
+  padding: 8px;
+  border-radius: 8px;
+  /* Fondo blanco fijo: las apps leen mejor el QR con buen contraste, en cualquier tema. */
+  background: #fff;
+}
+
+.secret {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.secretLabel {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.secretValue {
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  word-break: break-all;
+  user-select: all;
+}
+
+.hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.label {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 550;
+}
+
+.codeInput {
+  width: 100%;
+  min-height: 40px;
+  padding: 9px 11px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 18px;
+  letter-spacing: 0.3em;
+  text-align: center;
+  outline: none;
+}
+
+.codeInput:focus {
+  border-color: var(--accent);
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.button,
+.buttonGhost {
+  flex: 1;
+  min-height: 40px;
+  padding: 9px 12px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.button {
+  background: var(--accent);
+  color: #071413;
+}
+
+.buttonGhost {
+  border-color: var(--border);
+  background: transparent;
+  color: var(--text);
+}
+
+.button:disabled,
+.buttonGhost:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.errorBox {
+  padding: 10px 11px;
+  border: 1px solid rgb(248 81 73 / 0.28);
+  border-radius: 6px;
+  background: rgb(248 81 73 / 0.08);
+  color: var(--grade-f);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* Página /mfa (fuera del layout del dashboard). */
+.page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100svh;
+  padding: 24px;
+  background: var(--bg);
+}
+
+.panel {
+  width: 100%;
+  max-width: 420px;
+  padding: 28px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.brand {
+  margin: 0 0 24px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+}
+
+.brandMark {
+  padding: 0 3px;
+  color: var(--accent);
+}
+
+.title {
+  margin: 0;
+  color: var(--text);
+  font-size: 22px;
+  font-weight: 620;
+  letter-spacing: -0.03em;
+}
+
+.intro {
+  margin: 8px 0 22px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.signOut {
+  margin-top: 20px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 12px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* Lista de factores en Configuración → Seguridad. */
+.factorList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+}
+
+.factor {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.factorName {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.factorMeta {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.success {
+  color: var(--grade-a);
+  font-size: 12px;
+}

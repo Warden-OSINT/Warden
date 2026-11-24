@@ -7,6 +7,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useState, type ChangeEvent, type FormEvent } from 'react';
 import { isValidIdentifier, normalizeIdentifier, toAuthEmail } from '@/lib/local-user';
+import { MFA_PATH } from '@/lib/mfa';
 import { createClient } from '@/lib/supabase/client';
 import styles from './login.module.css';
 
@@ -68,7 +69,9 @@ export default function LoginPage() {
           : 'Tu cuenta está inactiva. Solicita su activación a un administrador.' });
         return;
       }
-      router.push('/');
+      // MFA obligatoria: tras la contraseña falta inscribir el factor TOTP o escribir su código.
+      const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      router.push(aal?.currentLevel === 'aal2' ? '/' : MFA_PATH);
       router.refresh();
     } catch {
       setError({ field: 'general', message: 'No se pudo conectar con el servidor' });
