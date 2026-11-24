@@ -3,6 +3,11 @@ import styles from '@/components/dashboard/dashboard.module.css';
 
 const SECTIONS = [
   {
+    href: '/settings/security',
+    title: 'Seguridad',
+    hint: 'Tu verificación en dos pasos: agregar o dar de baja apps autenticadoras como Google Authenticator.',
+  },
+  {
     href: '/settings/users',
     title: 'Usuarios',
     hint: 'Crear cuentas locales, asignar roles, activar accesos y cambiar contraseñas. Solo administradores.',

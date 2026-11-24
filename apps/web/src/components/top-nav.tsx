@@ -4,6 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { ThemeToggle } from './theme-toggle';
 import styles from './top-nav.module.css';
 
 const NAV = [
@@ -43,13 +44,14 @@ export function TopNav() {
           const active = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
           return (
             <li key={item.href}>
-              <Link href={item.href} className={`${styles.tab} ${active ? styles.active : ''}`}>
+              <Link href={item.href} className={`${styles.tab} ${active ? styles.active : ''}`} aria-current={active ? 'page' : undefined}>
                 {item.label}
               </Link>
             </li>
           );
         })}
       </ul>
+      <ThemeToggle />
       <button type="button" className={styles.logout} onClick={logout}>
         Cerrar sesión
       </button>

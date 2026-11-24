@@ -32,3 +32,20 @@
   accent-color: var(--accent);
   cursor: pointer;
 }
+
+.addForm {
+  align-items: end;
+  padding: 4px 0 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.bulkBar {
+  padding: 10px 12px;
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
+  border-radius: 6px;
+  background: var(--accent-subtle);
+}
+
+.check input {
+  accent-color: var(--accent);
+}

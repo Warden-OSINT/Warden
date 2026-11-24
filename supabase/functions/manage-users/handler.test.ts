@@ -67,6 +67,14 @@ test('impide que el administrador se desactive o quite su propio rol', async () 
   assert.equal((await setup.send({ ...update, id: otherId, role: 'analyst', isActive: false })).status, 200);
 });
 
+test('restablece la MFA de otro usuario, pero no la propia, y valida el id', async () => {
+  const setup = fixture();
+  assert.equal((await setup.send({ action: 'resetMfa', id: adminId })).status, 400);
+  assert.equal((await setup.send({ action: 'resetMfa', id: 'incorrecto' })).status, 400);
+  assert.equal((await setup.send({ action: 'resetMfa', id: otherId, extra: true })).status, 200);
+  assert.deepEqual(setup.calls, [{ action: 'resetMfa', id: otherId }]);
+});
+
 test('acepta cambios de contraseña y paginación y no incluye contraseñas en la respuesta', async () => {
   const setup = fixture();
   const response = await setup.send({ action: 'password', id: otherId, password: account.password });
