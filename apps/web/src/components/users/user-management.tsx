@@ -94,9 +94,9 @@ function CreateUserForm() {
             <input name="fullName" required maxLength={120} autoComplete="off" />
           </label>
           <label className={styles.field}>
-            Usuario
-            <input name="email" required maxLength={254} autoComplete="off" placeholder="analista" />
-            <span className={styles.fieldHint}>3–32 letras, números, puntos o guiones. También acepta un correo.</span>
+            Correo
+            <input name="email" type="email" required maxLength={254} autoComplete="off" placeholder="nombre@empresa.com" />
+            <span className={styles.fieldHint}>Con este correo inicia sesión.</span>
           </label>
           <label className={styles.field}>
             Rol
@@ -313,7 +313,7 @@ export function UserManagement({
               <table className={dashboard.table}>
                 <thead>
                   <tr>
-                    <th>Usuario</th>
+                    <th>Correo</th>
                     <th>Nombre</th>
                     <th>Rol</th>
                     <th>Estado</th>
