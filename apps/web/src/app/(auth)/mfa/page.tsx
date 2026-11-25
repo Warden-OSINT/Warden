@@ -1,13 +1,15 @@
 'use client';
 
 // Segundo paso obligatorio tras la contraseña: inscribir el factor TOTP (primer ingreso)
-// o escribir su código. El proxy manda aquí toda sesión AAL1.
+// o escribir su código. El proxy manda aquí toda sesión AAL1 y las AAL2 cuyo último código
+// tiene más de una semana.
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { TotpChallenge } from '@/components/mfa/totp-challenge';
 import { TotpEnroll } from '@/components/mfa/totp-enroll';
 import styles from '@/components/mfa/mfa.module.css';
+import { hasFreshMfa, lastTotpAt } from '@/lib/mfa';
 import { createClient } from '@/lib/supabase/client';
 
 type Step = { kind: 'loading' } | { kind: 'challenge'; factorId: string } | { kind: 'enroll' } | { kind: 'error' };
@@ -23,7 +25,7 @@ export default function MfaPage() {
         supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
         supabase.auth.mfa.listFactors(),
       ]);
-      if (aal?.currentLevel === 'aal2') {
+      if (hasFreshMfa(aal?.currentLevel, lastTotpAt(aal?.currentAuthenticationMethods))) {
         router.replace('/');
         return;
       }
@@ -56,7 +58,7 @@ export default function MfaPage() {
             <h1 id="mfa-heading" className={styles.title}>Configura tu autenticador</h1>
             <p className={styles.intro}>
               Warden exige verificación en dos pasos para todas las cuentas. Vincula una app como Google
-              Authenticator; en cada ingreso te pediremos el código que genera.
+              Authenticator; te pediremos el código que genera al iniciar sesión y una vez por semana.
             </p>
             <TotpEnroll onEnrolled={enter} />
           </>

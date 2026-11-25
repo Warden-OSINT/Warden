@@ -1,20 +1,43 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { isTotpCode, mfaGate, normalizeTotpCode } from '../src/lib/mfa.ts';
+import { hasFreshMfa, isTotpCode, lastTotpAt, mfaGate, normalizeTotpCode } from '../src/lib/mfa.ts';
 
-test('exige AAL2 en toda la app y manda al paso del código con AAL1', () => {
-  assert.equal(mfaGate('/', 'aal1'), 'to-mfa');
-  assert.equal(mfaGate('/settings/users', null), 'to-mfa');
-  assert.equal(mfaGate('/api/scans', 'aal1'), 'to-mfa');
-  assert.equal(mfaGate('/mfa', 'aal1'), 'allow');
-  assert.equal(mfaGate('/', 'aal2'), 'allow');
-  assert.equal(mfaGate('/mfa', 'aal2'), 'to-home');
-  assert.equal(mfaGate('/mfasomething', 'aal1'), 'to-mfa');
+const DAY = 24 * 60 * 60 * 1000;
+const now = Date.UTC(2026, 10, 25);
+
+test('exige MFA vigente en toda la app y manda al paso del código si falta', () => {
+  assert.equal(mfaGate('/', false), 'to-mfa');
+  assert.equal(mfaGate('/settings/users', false), 'to-mfa');
+  assert.equal(mfaGate('/api/scans', false), 'to-mfa');
+  assert.equal(mfaGate('/mfa', false), 'allow');
+  assert.equal(mfaGate('/login', false), 'allow');
+  assert.equal(mfaGate('/mfasomething', false), 'to-mfa');
+  assert.equal(mfaGate('/', true), 'allow');
+  assert.equal(mfaGate('/mfa', true), 'to-home');
 });
 
-test('deja /login libre para cambiar de cuenta', () => {
-  assert.equal(mfaGate('/login', 'aal1'), 'allow');
-  assert.equal(mfaGate('/login', 'aal2'), 'allow');
+test('con MFA vigente /login manda al dashboard para no abrir otra sesión', () => {
+  assert.equal(mfaGate('/login', true), 'to-home');
+  assert.equal(mfaGate('/loginx', true), 'allow');
+});
+
+test('la MFA vence a la semana del último código', () => {
+  assert.ok(hasFreshMfa('aal2', now - 6 * DAY, now));
+  assert.ok(!hasFreshMfa('aal2', now - 7 * DAY, now));
+  assert.ok(!hasFreshMfa('aal2', null, now));
+  assert.ok(!hasFreshMfa('aal1', now, now));
+});
+
+test('toma el último código TOTP del claim amr', () => {
+  const at = (ms: number) => Math.floor(ms / 1000);
+  assert.equal(lastTotpAt([
+    { method: 'password', timestamp: at(now) },
+    { method: 'totp', timestamp: at(now - 3 * DAY) },
+    { method: 'mfa/totp', timestamp: at(now - DAY) },
+  ]), at(now - DAY) * 1000);
+  assert.equal(lastTotpAt([{ method: 'password', timestamp: at(now) }]), null);
+  assert.equal(lastTotpAt(['totp']), null);
+  assert.equal(lastTotpAt(undefined), null);
 });
 
 test('valida códigos TOTP de 6 dígitos', () => {
