@@ -52,10 +52,11 @@ test('valida contraseñas en bytes, nombres, correo, ids, roles y páginas', asy
   assert.equal(setup.calls.length, 0);
 });
 
-test('crea un usuario sin correo real mediante un identificador local estable', async () => {
+test('exige un correo para las cuentas nuevas', async () => {
   const setup = fixture();
-  assert.equal((await setup.send({ action: 'create', ...account, email: ' Analista_01 ' })).status, 200);
-  assert.equal(setup.calls[0]?.action === 'create' && setup.calls[0].email, 'analista_01@warden.test');
+  assert.equal((await setup.send({ action: 'create', ...account, email: ' Analista_01 ' })).status, 400);
+  assert.equal((await setup.send({ action: 'create', ...account, email: ' Ana.Lopez@Empresa.com ' })).status, 200);
+  assert.deepEqual(setup.calls.map((call) => call.action === 'create' && call.email), ['ana.lopez@empresa.com']);
 });
 
 test('impide que el administrador se desactive o quite su propio rol', async () => {
