@@ -49,7 +49,7 @@ Estos valores deben coincidir en tres lugares: `packages/shared/src/index.ts`, l
 |---|---|
 | Esquema de BD, RLS, colas, cron | ✅ Completo (`supabase/migrations/`) |
 | Login con Supabase Auth | ✅ `apps/web/src/app/(auth)/login` |
-| Usuarios locales | ✅ `/settings/users`: creación, nombre/rol, activación y contraseñas mediante la función local `manage-users`; requiere Supabase local, admin activo y función habilitada. **MFA TOTP obligatoria para todos** (`/mfa`, Configuración → Seguridad; el proxy y RLS vía `app_role()` exigen AAL2; un admin puede restablecer la MFA de otro). Correo verificado pendiente (`docs/local-users.md`). |
+| Usuarios | ✅ `/settings/users`: creación, nombre/rol, activación, contraseñas y restablecer MFA mediante la Edge Function `manage-users` (local y Cloud; en Cloud se despliega y habilita con `WARDEN_USER_ADMIN_ENABLED`); requiere admin activo con AAL2. **MFA TOTP obligatoria para todos** (`/mfa`, Configuración → Seguridad; el proxy y RLS vía `app_role()` exigen AAL2; el proxy vuelve a pedir el código si el último tiene más de 7 días). Correo verificado pendiente (`docs/local-users.md`). |
 | Dashboard | 🟡 Datos reales de Supabase (`lib/dashboard-data.ts`): registro de la empresa, paneles de exposición, correo y reputación, escaneo manual, confirmación de activos y habilitar `internetdb` (admin). KRI y notas por dominio desde `scores` (dominios sin datos marcados como cobertura parcial) y aviso si el último escaneo disparó una alerta. Sin sesión y con `WARDEN_DEV_SKIP_AUTH` usa `mock-dashboard.ts` |
 | `POST /api/scans` | ✅ Encola escaneos manuales |
 | Worker (cola → colectores → persistencia) | ✅ Funciona |
@@ -257,7 +257,7 @@ Funciones SQL relevantes: `app_role()` (null si la sesión no es AAL2), `is_memb
 2. **Dos llaves de Supabase, dos mundos.**
    - `apps/web`: solo `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` + sesión del usuario → todo pasa por RLS.
    - `apps/worker`: `SUPABASE_SECRET_KEY` (service role, omite RLS). **Nunca** debe aparecer en `apps/web`, en variables `NEXT_PUBLIC_*`, ni en Vercel.
-   - Excepción para administración **local**: `supabase/functions/manage-users` recibe `SUPABASE_SERVICE_ROLE_KEY` del runtime de Supabase y usa `auth.admin`. Exige JWT válido con emisor local, admin activo y `WARDEN_LOCAL_USER_ADMIN_ENABLED=true`. No desplegarla en Cloud ni copiar su llave a la web. Ver `docs/local-users.md`.
+   - Excepción para administración de usuarios: `supabase/functions/manage-users` toma la llave secreta que inyecta el runtime de Supabase (`SUPABASE_SECRET_KEYS` o `SUPABASE_SERVICE_ROLE_KEY`) y usa `auth.admin`. Exige JWT válido del proyecto con `aal2`, perfil admin activo y `WARDEN_USER_ADMIN_ENABLED=true`. Puede desplegarse en Cloud; la llave nunca sale del runtime de Supabase ni se copia a la web. Ver `docs/local-users.md`.
 3. **RLS siempre activo.** Toda tabla nueva necesita `enable row level security` + políticas, siguiendo el patrón de `20261001000800_enable_rls_policies.sql`, **y GRANTs explícitos** a `authenticated`/`service_role` (ver `20261014000200_grant_data_api_privileges.sql`): Supabase ya no expone automáticamente las tablas nuevas de `public` a la Data API. Los analistas solo pueden actualizar `status`, `status_reason`, `status_by` de `findings`.
 4. **Funciones `security definer`** llevan `set search_path = ''`, nombres calificados (`public.x`) y `revoke/grant execute` explícitos.
 5. **IA:** todo contexto pasa por `redact()` antes de ir a OpenRouter. La evidencia cruda (secretos, emails) nunca sale de Warden.

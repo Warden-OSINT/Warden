@@ -3,7 +3,6 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { displayIdentifier, normalizeIdentifier, toAuthEmail } from '@/lib/local-user';
-import { isLocalUserAdminEnabled } from '@/lib/local-user-admin';
 import type { ManagedUser, UserCommand } from '../../../../../../../supabase/functions/manage-users/handler';
 
 export interface UserActionResult {
@@ -18,7 +17,6 @@ interface UserResponse extends UserActionResult {
 }
 
 async function invoke(command: UserCommand): Promise<UserResponse> {
-  if (!isLocalUserAdminEnabled()) return { error: 'La administración de usuarios solo está habilitada con Supabase local' };
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: 'Sesión expirada' };
@@ -31,11 +29,11 @@ async function invoke(command: UserCommand): Promise<UserResponse> {
         const body = await error.context.json().catch(() => null);
         if (typeof body?.error === 'string') return { error: body.error };
       }
-      return { error: 'No se pudo contactar la función manage-users. Reinicia Supabase local (`npx supabase stop` y `pnpm db:start`).' };
+      return { error: 'No se pudo contactar la función manage-users. En local reinicia Supabase (`npx supabase stop` y `pnpm db:start`); en producción comprueba que esté desplegada (docs/local-users.md).' };
     }
     return data as { users?: ManagedUser[]; hasMore?: boolean; error?: string; warning?: string };
   } catch {
-    return { error: 'No se pudo conectar con Supabase local' };
+    return { error: 'No se pudo conectar con Supabase' };
   }
 }
 
