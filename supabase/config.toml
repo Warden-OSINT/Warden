@@ -389,9 +389,10 @@ deno_version = 2
 verify_jwt = false
 
 # Solo aplica a Supabase local: `supabase start` sirve manage-users ya habilitada.
-# En Cloud no existe este archivo, así que la función queda deshabilitada.
+# En Cloud se habilita aparte con `supabase secrets set WARDEN_USER_ADMIN_ENABLED=true`
+# (docs/local-users.md); sin ese secreto la función responde 403.
 [edge_runtime.secrets]
-WARDEN_LOCAL_USER_ADMIN_ENABLED = "true"
+WARDEN_USER_ADMIN_ENABLED = "true"
 
 [analytics]
 enabled = true

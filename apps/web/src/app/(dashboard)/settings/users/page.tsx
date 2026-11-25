@@ -2,7 +2,6 @@ import { redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
 import styles from '@/components/dashboard/dashboard.module.css';
 import { UserManagement } from '@/components/users/user-management';
-import { isLocalUserAdminEnabled } from '@/lib/local-user-admin';
 import { createClient } from '@/lib/supabase/server';
 import { loadUsers } from './actions';
 
@@ -16,10 +15,11 @@ function Notice({ title, children }: { title: string; children: ReactNode }) {
 }
 
 export default async function UsersPage() {
-  if (!isLocalUserAdminEnabled()) {
+  // Sin Supabase (modo demo) no hay sesión real ni función que invocar.
+  if (process.env.NODE_ENV !== 'production' && process.env.WARDEN_DEV_SKIP_AUTH === 'true') {
     return (
       <Notice title="Usuarios">
-        La administración de usuarios solo está habilitada con Supabase local y una sesión real de administrador.
+        La administración de usuarios necesita Supabase y una sesión real de administrador.
       </Notice>
     );
   }

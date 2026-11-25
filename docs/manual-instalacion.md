@@ -212,7 +212,7 @@ Este comando inicia el portal web (http://localhost:3000) y el worker al mismo t
 
 ### 6.4 Iniciar sesión
 
-El seed local crea el administrador de desarrollo `admin@warden.test`, activo y con rol `admin`. Su contraseña está en el comentario de `supabase/seeds/dev-admin.sql`. Desde **Configuración → Usuarios** se pueden crear más cuentas locales (ver `docs/local-users.md`).
+El seed local crea el administrador de desarrollo `admin@warden.test`, activo y con rol `admin`. Su contraseña está en el comentario de `supabase/seeds/dev-admin.sql`. Desde **Configuración → Usuarios** se pueden crear más cuentas (ver `docs/local-users.md`).
 
 ### 6.5 Opcional: worker en contenedor
 
@@ -306,7 +306,16 @@ En producción no existe el usuario de desarrollo, y el portal no tiene página 
 
 Los usuarios nuevos se crean **inactivos** por diseño. Para crear analistas se repite el paso 1 y se activan con la misma consulta, cambiando `'admin'` por `'analyst'`.
 
-> La pantalla **Configuración → Usuarios** del portal solo funciona en el entorno local: depende de una función de Supabase que no debe desplegarse en la nube.
+Para administrar usuarios desde el portal (**Configuración → Usuarios**: crear, activar, cambiar rol o contraseña y restablecer la MFA), despliega la función `manage-users` una vez y habilítala:
+
+```bash
+supabase functions deploy manage-users
+supabase secrets set WARDEN_USER_ADMIN_ENABLED=true
+```
+
+Con eso, el primer admin crea y activa al resto desde el portal. Sin la función, los usuarios se gestionan desde el panel de Supabase como se describe arriba.
+
+> **MFA:** todas las cuentas inscriben un autenticador TOTP en su primer ingreso. Hay que habilitar TOTP en **Authentication → MFA** del proyecto. El código se pide al iniciar sesión y de nuevo cuando el último tiene más de 7 días.
 
 ### 8.2 Puesta en marcha
 
