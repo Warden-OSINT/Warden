@@ -99,7 +99,9 @@ proyecto hospedado hay que activarlo en Authentication → MFA.
   una acción independiente. No puedes quitarte el rol admin ni desactivarte.
 - El login comprueba `is_active` después de autenticar y cierra la sesión si la
   cuenta todavía no está habilitada.
-- Las contraseñas requieren 6 caracteres y como máximo 72 bytes. No se guardan
+- Las contraseñas que define un admin (alta y cambio) requieren al menos 8
+  caracteres con letras, números y símbolos, y como máximo 72 bytes
+  (`isAcceptablePassword` en `handler.ts`). No se guardan
   en perfiles, logs ni auditoría ni se devuelven al navegador. Se envían a Auth
   para su almacenamiento mediante hash.
 - La auditoría registra actor, acción e id de usuario. Un fallo de auditoría
