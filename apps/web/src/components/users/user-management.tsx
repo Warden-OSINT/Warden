@@ -286,7 +286,7 @@ export function UserManagement({
           ← Configuración
         </Link>
         <h1 className={dashboard.pageTitle}>Usuarios</h1>
-        <p className={dashboard.subtitle}>Cuentas locales con contraseña y verificación en dos pasos (TOTP) obligatoria. Verificación por correo pendiente.</p>
+        <p className={dashboard.subtitle}>Cuentas con contraseña y verificación en dos pasos (TOTP) obligatoria, que se vuelve a pedir cada semana.</p>
       </div>
 
       {error && <p className={`${styles.feedback} ${styles.error}`} role="alert">{error}</p>}

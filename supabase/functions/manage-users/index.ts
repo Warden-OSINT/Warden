@@ -1,8 +1,18 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.117.2';
 import { createUserAdminHandler, UserAdminError, type ManagedUser } from './handler.ts';
 
-// Solo el runtime de Supabase recibe esta llave; Next.js usa la sesión del admin.
-const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
+// Llave con privilegios que inyecta el runtime de Supabase: SUPABASE_SECRET_KEYS (JSON con las
+// llaves secretas nuevas) o, en proyectos con llaves heredadas y en local, SUPABASE_SERVICE_ROLE_KEY.
+// Nunca sale de la función; Next.js solo manda la sesión del admin.
+function secretKey(): string {
+  try {
+    const keys = JSON.parse(Deno.env.get('SUPABASE_SECRET_KEYS') ?? '{}') as Record<string, unknown>;
+    if (typeof keys.default === 'string' && keys.default) return keys.default;
+  } catch { /* formato inesperado: usa la llave heredada */ }
+  return Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+}
+
+const supabase = createClient(Deno.env.get('SUPABASE_URL')!, secretKey(), {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
@@ -18,11 +28,9 @@ Deno.serve(createUserAdminHandler({
   async authorize(token) {
     const { data: { user }, error } = await supabase.auth.getUser(token);
     if (error || !user) return null;
-    // getUser ya verificó la firma; el emisor limita esta función al Auth local.
+    // getUser ya verificó el token contra el Auth de este proyecto (local o Cloud).
     try {
       const payload = JSON.parse(atob(token.split('.')[1]!.replace(/-/g, '+').replace(/_/g, '/')));
-      const issuer = new URL(payload.iss);
-      if (!['127.0.0.1', 'localhost', '[::1]'].includes(issuer.hostname) || issuer.pathname !== '/auth/v1') return null;
       // MFA obligatoria: solo una sesión que ya verificó su código TOTP administra usuarios.
       if (payload.aal !== 'aal2') return null;
     } catch { return null; }
@@ -83,4 +91,4 @@ Deno.serve(createUserAdminHandler({
     if (auditError) return { warning: 'El cambio se guardó, pero no se pudo registrar en la auditoría' };
     return { success: true };
   },
-}, Deno.env.get('WARDEN_LOCAL_USER_ADMIN_ENABLED') === 'true'));
+}, Deno.env.get('WARDEN_USER_ADMIN_ENABLED') === 'true' && secretKey() !== ''));

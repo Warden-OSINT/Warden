@@ -75,7 +75,7 @@ export function createUserAdminHandler(backend: UserAdminBackend, enabled: boole
     const reply = (body: unknown, status = 200) => Response.json(body, {
       status, headers: { 'Cache-Control': 'no-store' },
     });
-    if (!enabled) return reply({ error: 'La administración local de usuarios está deshabilitada' }, 403);
+    if (!enabled) return reply({ error: 'La administración de usuarios está deshabilitada en este entorno' }, 403);
     if (request.method !== 'POST') return reply({ error: 'Método no permitido' }, 405);
     const token = request.headers.get('Authorization')?.match(/^Bearer (.+)$/i)?.[1];
     if (!token) return reply({ error: 'Sesión requerida' }, 401);

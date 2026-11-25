@@ -1,4 +1,4 @@
-# Administración local de usuarios
+# Administración de usuarios
 
 La ruta `/settings/users` permite a un **admin activo** crear cuentas con nombre,
 usuario y contraseña, editar nombre/rol, activar o desactivar accesos y
@@ -22,7 +22,7 @@ verificación en dos pasos (TOTP) es obligatoria para todas las cuentas (ver
    ```
 
 4. No hace falta levantar la función aparte: `supabase start` sirve
-   `manage-users` y le pasa `WARDEN_LOCAL_USER_ADMIN_ENABLED=true` desde
+   `manage-users` y le pasa `WARDEN_USER_ADMIN_ENABLED=true` desde
    `[edge_runtime.secrets]` en `supabase/config.toml` (solo aplica en local).
    Si Supabase ya estaba corriendo antes de traer esta función, reinícialo con
    `npx supabase stop` y `pnpm db:start` (los datos se conservan).
@@ -57,8 +57,16 @@ proyecto hospedado hay que activarlo en Authentication → MFA.
   cuenta no tiene factor verificado, `/mfa` muestra el QR y la clave manual y
   activa el factor al verificar el primer código. Si ya lo tiene, pide el código
   de 6 dígitos. Verificar sube la sesión a AAL2.
-- **Proxy.** `src/proxy.ts` redirige a `/mfa` toda sesión AAL1 (regla pura
-  `mfaGate` en `lib/mfa.ts`); `/login` queda libre para cambiar de cuenta.
+- **Proxy.** `src/proxy.ts` redirige a `/mfa` toda sesión AAL1 (reglas puras
+  `mfaGate` y `hasFreshMfa` en `lib/mfa.ts`). Con MFA vigente, `/login` y `/mfa`
+  mandan al dashboard (volver a iniciar sesión crearía una sesión AAL1 nueva);
+  para cambiar de cuenta se usa "Cerrar sesión".
+- **Una vez por semana.** La sesión de Supabase persiste (cookie de 400 días y el
+  refresh conserva AAL2), así que el código no se pide en cada visita. El proxy
+  lee la hora del último código TOTP del claim `amr` y, si pasaron 7 días
+  (`MFA_REVERIFY_MS`), manda a `/mfa` a escribirlo otra vez sin pedir la
+  contraseña. Cerrar sesión obliga a contraseña + código. Este límite semanal lo
+  aplica la web; RLS solo exige AAL2.
 - **RLS.** La migración `20261124000100_require_mfa_aal2.sql` hace que
   `app_role()` devuelva `null` si `auth.jwt()->>'aal'` no es `aal2`, así que
   `is_member()` e `is_admin()` (y todas sus políticas y RPCs) niegan el acceso
@@ -81,8 +89,8 @@ proyecto hospedado hay que activarlo en Authentication → MFA.
 
 - Next.js solo usa la llave publicable y la sesión del usuario. Las Server Actions
   verifican su perfil antes de invocar la función.
-- `manage-users` verifica cada JWT mediante `auth.getUser(token)`, exige un emisor
-  de Auth en localhost/127.0.0.1/::1 y consulta que el perfil siga siendo admin
+- `manage-users` verifica cada JWT mediante `auth.getUser(token)` contra el Auth
+  de su propio proyecto, exige `aal2` y consulta que el perfil siga siendo admin
   activo. La verificación explícita permite `verify_jwt=false` sin exponer la
   función a usuarios anónimos.
 - La llave administrativa vive únicamente en el runtime de Supabase. La función
@@ -101,9 +109,18 @@ proyecto hospedado hay que activarlo en Authentication → MFA.
   sesión. El cambio de contraseña no garantiza la revocación inmediata de
   sesiones ya emitidas; la administración global de sesiones queda pendiente.
 - No hay borrado de cuentas. Desactivarlas conserva la atribución histórica.
-- La página se deshabilita con `NODE_ENV=production` o una URL de Supabase remota.
-  No desplegar esta función en Cloud: la futura administración productiva deberá
-  diseñar verificación por correo y políticas de sesiones (la MFA ya aplica).
+- Funciona igual en local y en Supabase Cloud. En Cloud se despliega con
+  `supabase functions deploy manage-users` (toma `verify_jwt = false` de
+  `config.toml`; la función verifica el token por su cuenta) y se habilita con
+  `supabase secrets set WARDEN_USER_ADMIN_ENABLED=true`. Sin ese secreto responde
+  403. Para apagarla: `supabase secrets unset WARDEN_USER_ADMIN_ENABLED`.
+- La llave con privilegios la inyecta el runtime de Supabase
+  (`SUPABASE_SECRET_KEYS`, o `SUPABASE_SERVICE_ROLE_KEY` en proyectos con llaves
+  heredadas); nunca se copia a Vercel ni a Next.js.
+- Los identificadores sin `@` se guardan como `usuario@warden.test`, un dominio
+  que no recibe correo: esas cuentas no pueden recuperar su contraseña por
+  correo; un admin la cambia desde la página. La verificación por correo sigue
+  pendiente.
 
 ## Verificación
 
