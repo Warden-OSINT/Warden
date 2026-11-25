@@ -22,3 +22,7 @@ export function displayIdentifier(email: string): string {
   const suffix = `@${LOCAL_USER_DOMAIN}`;
   return email.endsWith(suffix) ? email.slice(0, -suffix.length) : email;
 }
+
+// Texto de la política de contraseñas; la regla la aplica manage-users (isAcceptablePassword en
+// supabase/functions/manage-users/handler.ts). Mantener ambos textos iguales.
+export const PASSWORD_RULE = 'Mínimo 8 caracteres, con letras, números y símbolos.';

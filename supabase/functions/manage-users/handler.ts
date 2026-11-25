@@ -27,6 +27,18 @@ export class UserAdminError extends Error {
   }
 }
 
+export const PASSWORD_RULE = 'Mínimo 8 caracteres, con letras, números y símbolos.';
+
+// Política básica para contraseñas que define un admin. bcrypt limita la entrada a 72 bytes:
+// no aceptar contraseñas que se truncarían.
+export function isAcceptablePassword(password: string): boolean {
+  return [...password].length >= 8
+    && new TextEncoder().encode(password).length <= 72
+    && /\p{L}/u.test(password)
+    && /\p{N}/u.test(password)
+    && /[^\p{L}\p{N}\s]/u.test(password);
+}
+
 function parseCommand(value: unknown): UserCommand {
   if (!value || typeof value !== 'object') throw new UserAdminError(400, 'Solicitud inválida');
   const input = value as Record<string, unknown>;
@@ -46,9 +58,8 @@ function parseCommand(value: unknown): UserCommand {
   }
   if (input.action === 'resetMfa') return { action: 'resetMfa', id };
   if (input.action === 'create' || input.action === 'password') {
-    // bcrypt limita la entrada a 72 bytes: no aceptar contraseñas que se truncarían.
-    if (typeof input.password !== 'string' || input.password.length < 6 || new TextEncoder().encode(input.password).length > 72) {
-      throw new UserAdminError(400, 'La contraseña debe tener al menos 6 caracteres y como máximo 72 bytes');
+    if (typeof input.password !== 'string' || !isAcceptablePassword(input.password)) {
+      throw new UserAdminError(400, `Contraseña inválida. ${PASSWORD_RULE} Como máximo 72 bytes.`);
     }
     if (input.action === 'password') return { action: 'password', id, password: input.password };
   }
