@@ -19,7 +19,7 @@ import {
   type UserActionResult,
 } from '@/app/(dashboard)/settings/users/actions';
 import dashboard from '@/components/dashboard/dashboard.module.css';
-import { displayIdentifier } from '@/lib/local-user';
+import { displayIdentifier, PASSWORD_RULE } from '@/lib/local-user';
 import type { ManagedUser } from '../../../../../supabase/functions/manage-users/handler';
 import styles from './users.module.css';
 
@@ -55,16 +55,19 @@ function Feedback({ state }: { state: UserActionResult }) {
 
 function PasswordFields() {
   return (
-    <div className={styles.formRow}>
-      <label className={styles.field}>
-        Contraseña
-        <input name="password" type="password" autoComplete="new-password" required minLength={6} maxLength={72} />
-      </label>
-      <label className={styles.field}>
-        Confirmar
-        <input name="confirmPassword" type="password" autoComplete="new-password" required minLength={6} maxLength={72} />
-      </label>
-    </div>
+    <>
+      <div className={styles.formRow}>
+        <label className={styles.field}>
+          Contraseña
+          <input name="password" type="password" autoComplete="new-password" required minLength={8} maxLength={72} />
+        </label>
+        <label className={styles.field}>
+          Confirmar
+          <input name="confirmPassword" type="password" autoComplete="new-password" required minLength={8} maxLength={72} />
+        </label>
+      </div>
+      <span className={styles.fieldHint}>{PASSWORD_RULE}</span>
+    </>
   );
 }
 
@@ -103,7 +106,6 @@ function CreateUserForm() {
             <RoleSelect defaultValue="analyst" />
           </label>
           <PasswordFields />
-          <span className={styles.fieldHint}>Mínimo 6 caracteres.</span>
           <button type="submit" className={dashboard.button}>
             {pending ? 'Creando…' : 'Crear usuario'}
           </button>

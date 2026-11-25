@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createUserAdminHandler, type UserCommand } from './handler.ts';
+import { createUserAdminHandler, isAcceptablePassword, type UserCommand } from './handler.ts';
 
 const adminId = '00000000-0000-4000-8000-00000000a001';
 const otherId = '00000000-0000-4000-8000-00000000a002';
@@ -39,6 +39,11 @@ test('normaliza cuentas, permite los roles conocidos y descarta campos de privil
 test('valida contraseñas en bytes, nombres, correo, ids, roles y páginas', async () => {
   const invalid = [
     { action: 'create', ...account, password: 'corta' },
+    { action: 'create', ...account, password: 'c0rta!' },
+    { action: 'create', ...account, password: 'sinnumeros!' },
+    { action: 'create', ...account, password: 'sinsimbolos123' },
+    { action: 'create', ...account, password: '12345678!' },
+    { action: 'password', id: otherId, password: 'contrasena123' },
     { action: 'create', ...account, password: '🔐'.repeat(19) },
     { action: 'create', ...account, email: 'usuario inválido' },
     { action: 'create', ...account, fullName: ' ' },
@@ -99,4 +104,9 @@ test('rechaza JSON malformado y oculta detalles internos y secretos en errores',
   }));
   assert.equal(response.status, 500);
   assert.ok(!(await response.text()).includes('secret-service-key'));
+});
+
+test('acepta contraseñas de 8+ caracteres con letras, números y símbolos', () => {
+  for (const ok of ['Segura#2026', 'contraseña-segura-123', 'añoÑ9 .x']) assert.ok(isAcceptablePassword(ok), ok);
+  for (const bad of ['Corta#1', 'SinNumeros#', 'SinSimbolo123', '1234567!', 'Letras 123']) assert.ok(!isAcceptablePassword(bad), bad);
 });
