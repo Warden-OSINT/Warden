@@ -59,11 +59,9 @@ function parseCommand(value: unknown): UserCommand {
     if (typeof input.isActive !== 'boolean') throw new UserAdminError(400, 'Estado inválido');
     return { action: 'update', id, fullName, role: input.role, isActive: input.isActive };
   }
-  const identifier = typeof input.email === 'string' ? input.email.trim().toLowerCase() : '';
-  if (!identifier.includes('@') && !/^[a-z0-9][a-z0-9._-]{2,31}$/.test(identifier)) {
-    throw new UserAdminError(400, 'El usuario debe tener entre 3 y 32 letras, números, puntos, guiones o guiones bajos');
-  }
-  const email = identifier.includes('@') ? identifier : `${identifier}@warden.test`;
+  // Las cuentas nuevas usan un correo real (el login sigue aceptando los usuarios
+  // `nombre@warden.test` creados antes).
+  const email = typeof input.email === 'string' ? input.email.trim().toLowerCase() : '';
   if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     throw new UserAdminError(400, 'Correo inválido');
   }

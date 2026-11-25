@@ -1,11 +1,11 @@
 # Administración de usuarios
 
 La ruta `/settings/users` permite a un **admin activo** crear cuentas con nombre,
-usuario y contraseña, editar nombre/rol, activar o desactivar accesos y
-cambiar contraseñas sin enviar correos. Puedes crear e ingresar como `analista`:
-internamente se utiliza `analista@warden.test` en Supabase Auth. Los identificadores
-admiten de 3 a 32 letras ASCII, números, puntos, guiones o guiones bajos y se
-normalizan a minúsculas. El login sigue aceptando correos completos. La
+correo y contraseña, editar nombre/rol, activar o desactivar accesos y
+cambiar contraseñas sin enviar correos. El correo se normaliza a minúsculas y es
+con lo que la persona inicia sesión. El login sigue aceptando un usuario sin `@`
+(`analista` → `analista@warden.test`) para las cuentas locales creadas antes y el
+admin de desarrollo. La
 verificación en dos pasos (TOTP) es obligatoria para todas las cuentas (ver
 [MFA](#verificación-en-dos-pasos-mfa)); la verificación de correo queda pendiente.
 
@@ -117,10 +117,9 @@ proyecto hospedado hay que activarlo en Authentication → MFA.
 - La llave con privilegios la inyecta el runtime de Supabase
   (`SUPABASE_SECRET_KEYS`, o `SUPABASE_SERVICE_ROLE_KEY` en proyectos con llaves
   heredadas); nunca se copia a Vercel ni a Next.js.
-- Los identificadores sin `@` se guardan como `usuario@warden.test`, un dominio
-  que no recibe correo: esas cuentas no pueden recuperar su contraseña por
-  correo; un admin la cambia desde la página. La verificación por correo sigue
-  pendiente.
+- Las cuentas nuevas exigen correo. Como Warden no envía correos de Auth, la
+  contraseña la define y la cambia un admin desde la página. La verificación por
+  correo sigue pendiente.
 
 ## Verificación
 
